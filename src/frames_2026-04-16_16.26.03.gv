@@ -1,0 +1,8 @@
+digraph G {
+"world" -> "map"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"world_ned" -> "bluerov2/base_link"[label=" Broadcaster: default_authority\nAverage rate: 10.2\nBuffer length: 5.0\nMost recent transform: 1776336963.279704\nOldest transform: 1776336958.279642\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1776336963.282666"[ shape=plaintext ] ;
+}->"world_ned";
+}

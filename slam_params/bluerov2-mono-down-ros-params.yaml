@@ -1,0 +1,8 @@
+/bluerov2_down/ORB_SLAM3_MONO_ROS2:
+  ros__parameters:
+    image_topic_name: /bluerov2/down/image_color/image_color
+    visualization: true
+    odometry_mode: false
+    publish_tf: true
+    map_data_publish_frequency: 1000
+    do_loop_closing: true

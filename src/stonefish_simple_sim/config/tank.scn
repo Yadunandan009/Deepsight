@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<scenario>
+
+    <static name="tank" type="model">
+        <physical>
+            <mesh filename="objects/tank.obj" scale="0.5" convex="false"/>
+            <origin xyz="0.0 0.0 10" rpy="0.0 0.0 0.0"/>
+        </physical>
+        <visual>
+            <mesh filename="objects/tank.obj" scale="0.5"/>
+            <origin xyz="5.0 10.0 10" rpy="0.0 0.0 0.0"/>
+        </visual>
+        <material name="Rock"/>
+        <look name="Gray"/>
+        <world_transform xyz="0.0 0.0 18.0" rpy="3.1415926 0.0 0.0"/>
+    </static>
+
+</scenario>

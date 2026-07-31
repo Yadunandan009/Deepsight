@@ -1,0 +1,13 @@
+ORB_SLAM3_IMU_STEREO_ROS2:
+  ros__parameters:
+    robot_base_frame: base_link
+    global_frame: map
+    odom_frame: odom
+    left_image_topic_name: /bluerov2/left/image_color
+    right_image_topic_name: /bluerov2/right/image_color
+    imu_topic_name: /bluerov2/imu
+    visualization: true
+    odometry_mode: false
+    publish_tf: true
+    map_data_publish_frequency: 1000
+    do_loop_closing: true

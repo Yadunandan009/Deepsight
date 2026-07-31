@@ -1,0 +1,4 @@
+/**:
+  ros__parameters:
+    image_topic_name: /bluerov2/down/image_color
+    use_sim_time: true

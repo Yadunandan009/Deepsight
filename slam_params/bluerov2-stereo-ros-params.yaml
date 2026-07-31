@@ -1,0 +1,6 @@
+/bluerov2/ORB_SLAM3_STEREO_ROS2:
+  ros__parameters:
+    visualization: true
+    do_loop_closing: true
+    publish_map_points: true
+    map_points_publish_frequency: 5000

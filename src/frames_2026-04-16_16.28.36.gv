@@ -1,0 +1,9 @@
+digraph G {
+"world" -> "map"[label=" Broadcaster: default_authority\nAverage rate: 10000.0\nBuffer length: 0.0\nMost recent transform: 0.0\nOldest transform: 0.0\n"];
+"world_ned" -> "bluerov2/base_link"[label=" Broadcaster: default_authority\nAverage rate: 10.238\nBuffer length: 4.884\nMost recent transform: 1776337115.963622\nOldest transform: 1776337111.079679\n"];
+"map" -> "base_link"[label=" Broadcaster: default_authority\nAverage rate: 14.569\nBuffer length: 5.217\nMost recent transform: 1776337116.279533\nOldest transform: 1776337111.062829\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1776337116.0562325"[ shape=plaintext ] ;
+}->"world_ned";
+}
