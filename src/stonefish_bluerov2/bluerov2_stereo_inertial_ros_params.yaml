@@ -1,0 +1,6 @@
+/**:
+  ros__parameters:
+    left_image_topic: "/bluerov2/left/image_color"
+    right_image_topic: "/bluerov2/right/image_color"
+    imu_topic: "/bluerov2/imu"
+    use_sim_time: true

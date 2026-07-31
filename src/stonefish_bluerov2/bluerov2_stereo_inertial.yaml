@@ -1,0 +1,140 @@
+%YAML:1.0
+File.version: "1.0"
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters
+#--------------------------------------------------------------------------------------------
+Camera.type: "PinHole"
+
+# Left camera (camera_left)
+# fx = fy = (width/2) / tan(fov/2) = (640/2) / tan(75*pi/360) = ~457.1
+Camera1.fx: 457.1
+Camera1.fy: 457.1
+Camera1.cx: 320.0
+Camera1.cy: 240.0
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+
+# Right camera (camera_right) - same intrinsics
+Camera2.fx: 457.1
+Camera2.fy: 457.1
+Camera2.cx: 320.0
+Camera2.cy: 240.0
+Camera2.k1: 0.0
+Camera2.k2: 0.0
+Camera2.p1: 0.0
+Camera2.p2: 0.0
+
+Camera.width: 640
+Camera.height: 480
+Camera.fps: 30
+Camera.RGB: 1
+
+# Stereo baseline * fx
+Stereo.b: 0.145
+Stereo.ThDepth: 40.0
+Stereo.T_c1_c2: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [1.0, 0.0, 0.0, 0.0,
+          0.0, 1.0, 0.0, 0.145,
+          0.0, 0.0, 1.0, 0.0,
+          0.0, 0.0, 0.0, 1.0]
+
+#--------------------------------------------------------------------------------------------
+# Stereo Rectification (identity - cameras are already aligned in Stonefish)
+#--------------------------------------------------------------------------------------------
+LEFT.height: 480
+LEFT.width: 640
+LEFT.D: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [0.0, 0.0, 0.0, 0.0, 0.0]
+LEFT.K: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [457.1, 0.0, 320.0, 0.0, 457.1, 240.0, 0.0, 0.0, 1.0]
+LEFT.R: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+LEFT.P: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [457.1, 0.0, 320.0, 0.0, 0.0, 457.1, 240.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+
+RIGHT.height: 480
+RIGHT.width: 640
+RIGHT.D: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [0.0, 0.0, 0.0, 0.0, 0.0]
+RIGHT.K: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [457.1, 0.0, 320.0, 0.0, 457.1, 240.0, 0.0, 0.0, 1.0]
+RIGHT.R: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+RIGHT.P: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [457.1, 0.0, 320.0, 0.0, 0.0, 457.1, 240.0, 0.145, 0.0, 0.0, 1.0, 0.0]
+
+#--------------------------------------------------------------------------------------------
+# IMU Parameters
+#--------------------------------------------------------------------------------------------
+IMU.NoiseGyro: 0.00001745
+IMU.NoiseAcc: 0.01
+IMU.GyroWalk: 0.000001
+IMU.AccWalk: 0.0001
+IMU.Frequency: 20.0
+IMU.initBA: 0.1
+IMU.initBG: 0.01
+
+# Transform from IMU to Camera1 (left camera)
+# Left camera at xyz="0.16 -0.0725 0.15" rpy="1.571 0.0 1.571" relative to body
+# IMU at body origin xyz="0.0 0.0 0.0"
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [0.0, 0.0, 1.0, 0.16,
+          -1.0, 0.0, 0.0, -0.0725,
+          0.0, -1.0, 0.0, 0.15,
+          0.0, 0.0, 0.0, 1.0]
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+ORBextractor.nFeatures: 1000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 10
+ORBextractor.minThFAST: 5
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#--------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0

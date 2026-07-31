@@ -1,0 +1,18 @@
+# ArduSub runtime artifacts
+scenarios/eeprom.bin
+scenarios/mav.tlog
+scenarios/mav.tlog.raw
+scenarios/log/
+scenarios/install/
+
+# Backups
+*.bak
+*.bak2
+*.bak_*
+*.bak*
+
+# Python
+__pycache__/
+*.pyc
+scenarios/build/
+scenarios/build/

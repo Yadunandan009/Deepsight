@@ -1,0 +1,74 @@
+### EKF Configuration for BlueROV2 (ROS 2 Jazzy)
+ekf_filter_node:
+  ros__parameters:
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: false
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: true
+    debug: false
+
+    map_frame: map
+    odom_frame: world_ned
+    base_link_frame: bluerov2/base_link
+    world_frame: world_ned
+
+    # ----------------------------------------------------------------
+    # SENSOR 0: Raw INS Odometry (PRIMARY ANCHOR)
+    # Starts at Z=0 every run — prevents EKF accumulation between runs
+    # Provides: X, Y, Z, Yaw as absolute reference
+    # ----------------------------------------------------------------
+    odom0: /bluerov2/odometry
+    odom0_config: [true,  true,  true,   # X, Y, Z
+                   false, false, true,   # Roll, Pitch, Yaw
+                   false, false, false,  # NO velocity from INS
+                   false, false, false,
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+
+    # ----------------------------------------------------------------
+    # SENSOR 1: ORB SLAM3 (Stereo Odometry)
+    # Corrects XY and Yaw drift when tracking turbine
+    # Z disabled — SLAM Z is unreliable during depth changes
+    # ----------------------------------------------------------------
+    pose0: /bluerov2/robot_pose_slam_ekf
+    pose0_config: [true,  true,  false,  # X, Y only
+                   false, false, false,  # Yaw disabled — IMU only
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose0_differential: false
+    pose0_relative: false
+
+    # SENSOR 2: Depth (Pressure Sensor) — DISABLED
+    # Pressure sensor has ~10m absolute offset vs odometry
+    # Raw odometry Z is more reliable for depth
+    # pose1: /bluerov2/depth_pose
+
+    # ----------------------------------------------------------------
+    # SENSOR 3: IMU
+    # Roll, Pitch, angular velocities
+    # ----------------------------------------------------------------
+    imu0: /bluerov2/imu
+    imu0_config: [false, false, false,
+                  true,  true,  true,   # Roll, Pitch, Yaw
+                  false, false, false,
+                  true,  true,  true,   # Angular velocities
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # ----------------------------------------------------------------
+    # SENSOR 4: DVL (Doppler Velocity Log)
+    # Ground-truth velocity — corrects INS velocity drift
+    # ----------------------------------------------------------------
+    twist0: /bluerov2/dvl_twist
+    twist0_config: [false, false, false,
+                    false, false, false,
+                    true,  true,  true,  # vx, vy, vz
+                    false, false, false,
+                    false, false, false]
+    twist0_differential: false
