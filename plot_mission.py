@@ -22,7 +22,7 @@ except ImportError:
 
 # ── Config ────────────────────────────────────────────────────────
 TURBINE_X, TURBINE_Y = 20.0, 0.0
-SCAN_DIST            = 13.5
+SCAN_DIST            = 17.0
 OUT_DIR              = os.path.expanduser('~/ros2_ws/plots')
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -60,6 +60,7 @@ print(f"Bag: {bag_dir}")
 print(f"Files: {len(mcap_files)}, Total: {best_size/1e9:.2f} GB")
 
 # ── Data containers ───────────────────────────────────────────────
+ins_yaw_latest                  = 0.0
 ins_x, ins_y, ins_z, ins_t      = [], [], [], []
 slam_x, slam_y, slam_z, slam_t  = [], [], [], []
 mono_x, mono_y, mono_z, mono_t  = [], [], [], []
@@ -79,24 +80,33 @@ for mcap_file in mcap_files:
             top = msg.channel.topic
             m   = msg.ros_msg
 
-            if top == '/bluerov2/odometry/filtered':
+            if top == '/bluerov2/odometry':
+                # Raw dead-reckoned INS (IMU+DVL+pressure), not the EKF's
+                # fused output -- '/bluerov2/odometry/filtered' isn't even
+                # recorded by record_mission.sh, and semantically the
+                # fused topic includes SLAM's own contribution, which
+                # would make ATE/RPE partly compare SLAM against itself.
                 ins_t.append(t)
                 ins_x.append(m.pose.pose.position.x)
                 ins_y.append(m.pose.pose.position.y)
                 ins_z.append(m.pose.pose.position.z)
+                q = m.pose.pose.orientation
+                siny = 2.0 * (q.w * q.z + q.x * q.y)
+                cosy = q.w*q.w + q.x*q.x - q.y*q.y - q.z*q.z
+                ins_yaw_latest = math.atan2(siny, cosy)
 
-            elif top in ('/bluerov2/robot_pose_slam',
-                         '/bluerov2/robot_pose_slam_fused'):
+            elif top == '/bluerov2/robot_pose_slam_ekf':
+                # slam_pose_bridge's rigid-aligned (world_ned-frame) SLAM
+                # pose -- NOT raw '/bluerov2/robot_pose_slam', which is
+                # in SLAM's own arbitrary map frame and would make ATE
+                # mostly measure the frame misalignment rather than
+                # actual localization drift. PoseWithCovarianceStamped,
+                # so position is nested one level deeper than the raw
+                # PoseStamped topic it replaces.
                 slam_t.append(t)
-                slam_x.append(m.pose.position.x)
-                slam_y.append(m.pose.position.y)
-                slam_z.append(-m.pose.position.z)
-
-            elif top == '/bluerov2_down/robot_pose_slam':
-                mono_t.append(t)
-                mono_x.append(m.pose.position.x)
-                mono_y.append(m.pose.position.y)
-                mono_z.append(-m.pose.position.z)
+                slam_x.append(m.pose.pose.position.x)
+                slam_y.append(m.pose.pose.position.y)
+                slam_z.append(-m.pose.pose.position.z)
 
             elif top in ('/bluerov2/multibeam_raw', '/bluerov2/multibeam'):
                 ranges = list(m.ranges)
@@ -107,9 +117,18 @@ for mcap_file in mcap_files:
                 sonar_ranges.append(min(valid))
                 if ins_x:
                     rx, ry, rz = ins_x[-1], ins_y[-1], ins_z[-1]
-                    dyaw = math.atan2(ins_y[-1] - ins_y[-2],
-                                      ins_x[-1] - ins_x[-2]) \
-                           if len(ins_x) > 1 else 0.0
+                    # Real heading from the INS orientation quaternion --
+                    # NOT direction-of-travel between consecutive position
+                    # samples (the old approach). This vehicle routinely
+                    # translates sideways relative to its own heading
+                    # (CLOSE_IN crabs in, ORBIT moves tangentially while
+                    # nose stays locked on the turbine, SCAN is near-
+                    # stationary) so velocity direction and heading are
+                    # essentially never the same thing here -- that
+                    # mismatch was rotating every sonar ping by the wrong
+                    # angle, which is what smeared the reconstruction into
+                    # a spiral instead of a clean structure.
+                    dyaw = ins_yaw_latest
                     a_min = m.angle_min
                     a_inc = m.angle_increment
                     for i, r in enumerate(ranges):
@@ -171,23 +190,39 @@ if slam_x and ins_x:
     print(f"ATE — mean={ate_mean:.3f}m  max={ate_max:.3f}m  RMS={ate_rms:.3f}m")
 
 # ── Compute RPE ───────────────────────────────────────────────────
-def compute_rpe(ex, ey, gx, gy, delta=10):
+def compute_rpe(est_x, est_y, gt_x, gt_y, t, delta_t=1.0):
+    """Relative Pose Error over a fixed TIME window (TUM RGB-D
+    convention), not a fixed sample count -- SLAM and INS publish at
+    different, uneven rates, so a fixed sample-count delta corresponds
+    to a different real time span depending on which series' indices
+    it's applied to and how dense that stretch of data happens to be.
+    est/gt must already share the same timestamps `t` (both resampled
+    onto slam_t, as ix/iy already are for ATE)."""
     errors = []
-    n = min(len(ex), len(gx))
-    for i in range(n - delta):
-        de_x = ex[i+delta] - ex[i]
-        de_y = ey[i+delta] - ey[i]
-        dg_x = gx[i+delta] - gx[i]
-        dg_y = gy[i+delta] - gy[i]
+    n = len(t)
+    j = 0
+    for i in range(n):
+        target_t = t[i] + delta_t
+        if target_t > t[-1]:
+            break
+        while j < n - 1 and t[j] < target_t:
+            j += 1
+        if j <= i:
+            continue
+        de_x = est_x[j] - est_x[i]
+        de_y = est_y[j] - est_y[i]
+        dg_x = gt_x[j] - gt_x[i]
+        dg_y = gt_y[j] - gt_y[i]
         errors.append(math.sqrt((de_x-dg_x)**2 + (de_y-dg_y)**2))
     return np.sqrt(np.mean(np.array(errors)**2)) if errors else 0.0
 
 rpe = 0.0
 if slam_x and ins_x:
-    slam_ins_x = list(np.interp(ins_t[:len(slam_x)], slam_t, slam_x))
-    slam_ins_y = list(np.interp(ins_t[:len(slam_y)], slam_t, slam_y))
-    rpe = compute_rpe(slam_ins_x, slam_ins_y, ins_x[:len(slam_x)], ins_y[:len(slam_y)])
-    print(f"RPE (delta=10): {rpe:.3f}m")
+    # Reuse ix/iy (INS already resampled onto slam_t for ATE, above) --
+    # both series now share timestamps across the FULL mission, not the
+    # truncated first-N-samples slice the old interpolation produced.
+    rpe = compute_rpe(slam_x, slam_y, list(ix), list(iy), slam_t, delta_t=1.0)
+    print(f"RPE (Δt=1.0s): {rpe:.3f}m")
 
 # ── Compute drift vs distance ─────────────────────────────────────
 dist_travelled = [0.0]
@@ -310,21 +345,15 @@ if ate_err and slam_dist:
     ax.set_title('SLAM Drift vs Distance Travelled')
     ax.grid(True)
 
-    # RPE over different window sizes
+    # RPE over different time windows
     ax = axes2[1]
-    deltas = [5, 10, 20, 30, 50]
-    rpe_vals = []
-    for delta in deltas:
-        if slam_x and ins_x and len(slam_x) > delta:
-            r = compute_rpe(slam_ins_x, slam_ins_y,
-                            ins_x[:len(slam_x)], ins_y[:len(slam_y)], delta)
-            rpe_vals.append(r)
-        else:
-            rpe_vals.append(0.0)
-    ax.bar([str(d) for d in deltas], rpe_vals, color='steelblue', alpha=0.8)
-    ax.set_xlabel('Window Size (samples)')
+    deltas = [0.5, 1.0, 2.0, 5.0, 10.0]
+    rpe_vals = [compute_rpe(slam_x, slam_y, list(ix), list(iy), slam_t, d)
+                for d in deltas]
+    ax.bar([f"{d}s" for d in deltas], rpe_vals, color='steelblue', alpha=0.8)
+    ax.set_xlabel('Window Size [s]')
     ax.set_ylabel('RPE [m]')
-    ax.set_title('Relative Pose Error vs Window Size')
+    ax.set_title('Relative Pose Error vs Time Window')
     ax.grid(True, axis='y')
 
     plt.tight_layout()
@@ -425,7 +454,7 @@ if ate_err:
     print(f"ATE mean          : {ate_mean:.3f} m")
     print(f"ATE max           : {ate_max:.3f} m")
     print(f"ATE RMS           : {ate_rms:.3f} m")
-    print(f"RPE (delta=10)    : {rpe:.3f} m")
+    print(f"RPE (Δt=1.0s)     : {rpe:.3f} m")
 if last_map_msg:
     print(f"SLAM map points   : {len(slam_pts)}")
 print(f"Sonar points      : {len(sonar_pts)}")

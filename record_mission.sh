@@ -10,7 +10,7 @@ echo "Press Ctrl+C to stop."
 ros2 bag record \
   /bluerov2/odometry \
   /bluerov2/robot_pose_slam \
-  /bluerov2/robot_pose_slam_fused \
+  /bluerov2/robot_pose_slam_ekf \
   /bluerov2/map_points \
   /bluerov2/multibeam_raw \
   /bluerov2/multibeam \

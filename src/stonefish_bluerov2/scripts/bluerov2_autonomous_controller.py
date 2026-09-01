@@ -278,11 +278,106 @@ class InspectV8(Node):
     V_SCAN_MAX  = 0.30
     V_ORBIT     = 0.35
 
+    # CLOSE_IN crab-correction priority: surge, yaw, and sway share the
+    # same 4 horizontal thrusters (T_PINV columns 0/1/5), so a strong
+    # surge command combined with heading correction saturates the
+    # shared allocation -- _full()'s saturate-and-rescale then shrinks
+    # ALL of tau proportionally, diluting whatever sway correction
+    # vel_ctrl() computed at exactly the moment it's needed most.
+    # Confirmed via telemetry: vy_b grew to +/-0.2 m/s and was never
+    # driven back toward zero across a full ~40s CLOSE_IN approach
+    # while ux sat near 1.0 throughout -- real, sustained lateral
+    # drift (not just visual wobble) that displaced SCAN face 0
+    # off-center from the intended world-clock position. Throttling
+    # surge back as measured sway grows frees up thruster headroom for
+    # the sway correction to actually take effect.
+    CRAB_VY_LIMIT   = 0.30  # m/s -- |vy_b| at which surge is cut to the floor
+    CRAB_CAP_FLOOR  = 0.30  # minimum surge authority fraction even under
+                             # sustained crab, so the approach still progresses
+    CRAB_YAW_RATE_LIMIT = math.radians(2.5)  # rad/s -- |yaw_rate| at which
+                             # surge is cut to the floor, mirroring
+                             # CRAB_VY_LIMIT but keyed on the EARLIEST
+                             # symptom of the surge-coupling disturbance
+                             # rather than its downstream effect. Confirmed
+                             # via telemetry across two separate missions:
+                             # a real (gyro-verified, not EKF-glitch) yaw
+                             # rotation reliably starts ~10-25s into
+                             # CLOSE_IN -- reaching up to ~14.6deg/s before
+                             # it's even confirmed -- and grows into a
+                             # 33-57deg heading swing before bearing_hold's
+                             # position-error term catches up, by which
+                             # point the swing (and the sway it imparts)
+                             # has already happened. yaw_rate is live every
+                             # tick regardless of the yaw-glitch-guard's
+                             # hold state, so throttling surge on it
+                             # directly removes the disturbance's presumed
+                             # energy source (high surge authority) the
+                             # moment a rotation starts, instead of
+                             # reacting after the fact.
+    CLOSE_IN_SURGE_RAMP_T = 8.0  # s -- raised from 3.0. Telemetry across
+                             # two independent runs (one with a yaw
+                             # force-accept mid-CLOSE_IN, one with a
+                             # completely clean yaw trace) showed the same
+                             # vy_b deviation starting at t=6-8s into
+                             # CLOSE_IN, 2-3s BEFORE any sonar/SLAM trouble
+                             # -- same sign, same rough timing, right as
+                             # the 3s ramp neared full authority. That
+                             # rules out sonar/SLAM as the trigger and
+                             # points back to the same surge-coupling
+                             # torque already documented below (previously
+                             # severe enough to swing bearing 168° before
+                             # the ramp existed at all) -- the 3s ramp
+                             # softened it but didn't remove it. Spreading
+                             # the ramp over more time lowers the peak
+                             # disturbance rate and gives the crab throttle
+                             # more headroom to react before vy_b builds
+                             # toward its ~0.25 m/s ceiling.
+    SONAR_DROPOUT_CAUTION_T = 1.0  # s -- if the multibeam has reported NO
+                             # valid return for this long during CLOSE_IN,
+                             # slow to a cautious creep instead of closing
+                             # in on world-model range alone at full
+                             # authority. Confirmed via telemetry: in a run
+                             # with two real (gyro-verified) yaw kicks
+                             # during CLOSE_IN, BOTH bracketed the SAME
+                             # ~13s sonar dropout (son=999 the entire
+                             # time) and SLAM map crash (75702->101
+                             # keyframes) -- one right as the dropout
+                             # started, one right as it cleared. trk_r
+                             # (world-model range, all that's left once
+                             # sonar drops out) stayed ~20m throughout,
+                             # i.e. this isn't a known-close reading the
+                             # existing SONAR_STOP backoff would catch --
+                             # it looks like real proximity to some part
+                             # of the actual lattice (legs/braces reach
+                             # out from the center the range-to-center
+                             # abstraction tracks) that only the sonar
+                             # would have seen, had it not gone blind.
+    SONAR_DROPOUT_CREEP = 0.05  # m/s -- NOT zero. A hard v_sp=0 here
+                             # deadlocked in testing: stopping removed the
+                             # very motion that let sonar naturally
+                             # reacquire in every prior (unfixed) run,
+                             # where a dropout always self-cleared within
+                             # ~13s while the vehicle kept moving -- so
+                             # holding still meant sonar never recovered
+                             # and CLOSE_IN just sat frozen at v_sp=0
+                             # until the 90s timeout. A slow creep keeps
+                             # some closing motion (and therefore some
+                             # chance of reacquiring sonar) while still
+                             # being far more cautious than a full-speed
+                             # blind approach.
+
     # ── Gains ───────────────────────────────────────────────────
     KV         = 1.2
     KP_RANGE   = 0.30
     KP_BEAR    = 0.60
-    KD_BEAR    = 0.35
+    KD_BEAR    = 0.55       # increased from 0.35 -- DESCEND showed
+                             # underdamped ringing (world_b overshooting
+                             # through multiple 180deg swings before
+                             # settling, not a single disturbance decaying).
+                             # Fix attempt 1/3; shared across bearing_hold()
+                             # and yaw_hold_world() so watch CLOSE_IN/SCAN/
+                             # RISE for any new twitchiness from stronger
+                             # derivative gain amplifying yaw_rate noise.
     YAW_CMD_LP = 0.25
 
     # ── Sonar ───────────────────────────────────────────────────
@@ -290,6 +385,12 @@ class InspectV8(Node):
 
     # ── Timeouts / tolerances ───────────────────────────────────
     SCAN_TIMEOUT, TRANSIT_TIMEOUT, RETURN_TIMEOUT = 400.0, 500.0, 300.0
+    CLOSE_IN_TIMEOUT = 90.0  # s -- safety valve for the new |vy_b|<0.08
+                              # exit condition; CLOSE_IN previously had
+                              # no timeout at all. If sustained crab
+                              # coupling ever keeps sway from settling,
+                              # force the SCAN handoff anyway rather
+                              # than hang indefinitely.
     DEPTH_TOL_SCAN, DEPTH_TOL_PHASE = 0.8, 1.0
     POS_TOL_HOME = 2.0
     SCAN_FULL_CYCLES = 1
@@ -312,6 +413,77 @@ class InspectV8(Node):
         [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
     ])
     WRENCH_SCALE = 2.0
+
+    # ── Yaw glitch guard ────────────────────────────────────────
+    # /bluerov2/odometry/filtered's orientation quaternion has been
+    # observed to make a discrete, instantaneous ~180deg jump (single
+    # ~20ms tick at the EKF's 50Hz publish rate) with ZERO matching
+    # motion in Stonefish's own ground-truth /bluerov2/odometry --
+    # confirmed by direct side-by-side logging (ground truth stayed
+    # flat at 0deg for the full window; EKF flipped to -180deg in one
+    # tick, then tracked GT-180 in lockstep for ~48s -- i.e. the EKF
+    # was internally self-consistent but offset by a fixed, wrong
+    # 180deg for an extended period, only self-correcting via a
+    # second identical instantaneous jump much later). Root cause is
+    # upstream (robot_localization / IMU quaternion representation,
+    # not this controller -- the atan2(2(qw*qz+qx*qy), qw^2+qx^2-qy^2-qz^2)
+    # formula used below is already invariant to quaternion double-cover,
+    # i.e. q vs -q, so it cannot itself be introducing this). A real
+    # ROV physically cannot rotate 180deg in 20ms (~9000deg/s), so any
+    # single-tick jump that large is trivially distinguishable from
+    # real motion -- hold the last good value instead of ever handing
+    # it to the controller.
+    YAW_GLITCH_MAX_STEP = math.radians(15.0)  # ~750deg/s at 50Hz -- far
+                                                # above the observed real
+                                                # max (~39deg/s) and far
+                                                # below the ~9000deg/s
+                                                # implied by the glitch
+    YAW_GLITCH_HOLD_MAX = 60.0  # s -- last-resort safety valve if gyro
+                                 # never corroborates the jump (see
+                                 # YAW_GLITCH_GYRO_TOL below) -- so a
+                                 # miscalibrated threshold or a genuine
+                                 # sustained fault can't wedge the
+                                 # controller on a stale yaw forever.
+                                 # Raised from an initial 10s: confirmed
+                                 # via telemetry that the underlying
+                                 # glitch can stay locked on the wrong
+                                 # value for a full continuous 10s (not
+                                 # just a rare one-off), so 10s let two
+                                 # separate force-accepts through in one
+                                 # DESCEND+CLOSE_IN run, each causing a
+                                 # real corrective spin that settled on
+                                 # a wrong heading. No real controller-
+                                 # commanded turn needs a fast response
+                                 # to an instantaneous >15deg jump --
+                                 # deliberate turns are always driven
+                                 # gradually through bearing_hold() --
+                                 # so raising this has no real-motion
+                                 # downside, only less exposure to the
+                                 # glitch.
+    YAW_GLITCH_GYRO_TOL = math.radians(8.0)  # deg -- a disputed jump is
+                                 # accepted immediately (no waiting for
+                                 # YAW_GLITCH_HOLD_MAX) once the gyro's own
+                                 # integrated rotation over the disputed
+                                 # window matches the jump within this
+                                 # tolerance. yaw_rate (twist.angular.z)
+                                 # comes from angular *rate* fusion, not
+                                 # the orientation *quaternion* -- the two
+                                 # don't share whatever bug produces
+                                 # instantaneous orientation jumps, so
+                                 # gyro corroboration is real independent
+                                 # evidence the rotation actually happened.
+                                 # Confirmed via CLOSE_IN telemetry: a real
+                                 # 22deg force-accepted jump triggered a
+                                 # genuine ~26deg corrective spin (gyro
+                                 # would have shown it), vs. earlier
+                                 # 163-180deg jumps that reversed a moment
+                                 # later with no corresponding motion at
+                                 # all -- gyro would NOT have shown those.
+    YAW_GLITCH_GYRO_MIN_HOLD = 0.3  # s -- ignore gyro corroboration until
+                                 # this much integration time has passed,
+                                 # so a near-zero integral on the very
+                                 # first disputed tick doesn't spuriously
+                                 # read as "confirmed" by accident.
 
     # ════════════════════════════════════════════════════════════
     def __init__(self):
@@ -340,6 +512,9 @@ class InspectV8(Node):
         # ── Raw sensor state ────────────────────────────────────
         self.px = self.py = self.pz = self.yaw_ekf = None
         self.yaw_rate = 0.0
+        self._yaw_glitch_since = None
+        self._yaw_glitch_gyro_integral = 0.0
+        self._yaw_glitch_last_t = None
         self.vx_b = self.vy_b = 0.0
         self.dvl_valid = False
         self.map_pts = 0
@@ -348,6 +523,7 @@ class InspectV8(Node):
         self.fused_x = self.fused_y = None
         self.sonar_range = 999.0
         self.sonar_valid = False
+        self.sonar_invalid_since = None
 
         # ── Estimators ──────────────────────────────────────────
         self.tracker  = RangeTracker()
@@ -411,10 +587,64 @@ class InspectV8(Node):
         q = m.pose.pose.orientation
         siny = 2.0 * (q.w * q.z + q.x * q.y)
         cosy = q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z
-        self.yaw_ekf = math.atan2(siny, cosy)
+        raw_yaw = math.atan2(siny, cosy)
         self.yaw_rate = m.twist.twist.angular.z
+        self._filter_yaw(raw_yaw)
         if self.state not in (S.IDLE, S.COMPLETE, S.ESTOP):
             self._feed_world_model()
+
+    def _filter_yaw(self, raw_yaw):
+        """Reject implausible yaw jumps unless the gyro's own integrated
+        rotation corroborates them -- see YAW_GLITCH_MAX_STEP/GYRO_TOL
+        docstrings above for the confirmed glitch this guards against."""
+        now = time.time()
+        if self.yaw_ekf is None:
+            self.yaw_ekf = raw_yaw
+            self._yaw_glitch_since = None
+            return
+
+        signed_step = wrap(raw_yaw - self.yaw_ekf)
+        step = abs(signed_step)
+        if step <= self.YAW_GLITCH_MAX_STEP:
+            self.yaw_ekf = raw_yaw
+            self._yaw_glitch_since = None
+            return
+
+        if self._yaw_glitch_since is None:
+            self._yaw_glitch_since = now
+            self._yaw_glitch_gyro_integral = 0.0
+            self._yaw_glitch_last_t = now
+        else:
+            dt = now - self._yaw_glitch_last_t
+            self._yaw_glitch_gyro_integral += self.yaw_rate * dt
+            self._yaw_glitch_last_t = now
+
+        held_for = now - self._yaw_glitch_since
+        gyro_rot = wrap(self._yaw_glitch_gyro_integral)
+        gyro_confirms = (held_for >= self.YAW_GLITCH_GYRO_MIN_HOLD
+                          and abs(wrap(signed_step - gyro_rot)) <= self.YAW_GLITCH_GYRO_TOL)
+
+        if gyro_confirms:
+            self.get_logger().warn(
+                f"yaw_ekf jump of {math.degrees(step):.0f}deg CONFIRMED by gyro "
+                f"({math.degrees(gyro_rot):.0f}deg integrated over {held_for:.1f}s) "
+                f"-- accepting (raw={math.degrees(raw_yaw):.0f})")
+            self.yaw_ekf = raw_yaw
+            self._yaw_glitch_since = None
+        elif held_for >= self.YAW_GLITCH_HOLD_MAX:
+            self.get_logger().warn(
+                f"yaw_ekf jump of {math.degrees(step):.0f}deg persisted {held_for:.1f}s "
+                f"with NO gyro support (gyro only integrated {math.degrees(gyro_rot):.0f}deg) "
+                f"-- force-accepting anyway as safety valve (raw={math.degrees(raw_yaw):.0f}, "
+                f"held={math.degrees(self.yaw_ekf):.0f})")
+            self.yaw_ekf = raw_yaw
+            self._yaw_glitch_since = None
+        else:
+            self.get_logger().warn(
+                f"yaw_ekf glitch rejected: {math.degrees(step):.0f}deg jump, gyro supports "
+                f"only {math.degrees(gyro_rot):.0f}deg so far (raw={math.degrees(raw_yaw):.0f}, "
+                f"held={math.degrees(self.yaw_ekf):.0f})",
+                throttle_duration_sec=1.0)
 
     def slam_cb(self, m):
         self.slam_t = time.time()
@@ -445,7 +675,10 @@ class InspectV8(Node):
         if len(valid) < 3:
             self.sonar_valid = False
             self.sonar_range = 999.0
+            if self.sonar_invalid_since is None:
+                self.sonar_invalid_since = time.time()
             return
+        self.sonar_invalid_since = None
 
         rmin = min(valid)
         self.sonar_range = rmin
@@ -659,18 +892,48 @@ class InspectV8(Node):
         dep = self.depth_ctrl(self.D_BASE)
         derr = abs(self.pz - self.D_BASE)
 
-        # Use bearing_hold() — the SAME yaw law that holds rock-steady
-        # in CLOSE_IN/SCAN with the corrected allocation matrix. The old
-        # hand-rolled `damp + point` law was tuned against the previous
-        # (broken) allocator where surge leaked into yaw; with the matrix
-        # now delivering clean full-authority yaw, that damp term drives
-        # the spin instead of arresting it. Same matrix makes CLOSE_IN
-        # hold 0° perfectly — so DESCEND should just reuse the same law.
+        # Confirmed via isolated thruster test (pure heave at full
+        # DESCEND-start magnitude -> zero rotation) that the yaw swing
+        # is NOT the allocation matrix or a physics transient -- it's
+        # bearing_hold()'s own proportional term, which gets
+        # disproportionate thruster authority (yaw column ~1.70 vs
+        # heave column ~0.25) relative to how small the triggering
+        # bearing error actually is, right when heave demand is at its
+        # saturated peak. Withhold proportional yaw correction while
+        # heave is still saturated/near-saturated (derr > 2.0); use
+        # pure rate damping only, which can only oppose existing
+        # rotation, not initiate it. Once heave eases, hand off to full
+        # bearing_hold() exactly as before -- that half was already
+        # confirmed working (rock-steady through CLOSE_IN/SCAN).
+        if derr > 2.0:
+            if self._elapsed() < 5.0:
+                self._full(0, 0, dep, 0.0)
+                return
+            # Damping alone only opposes ACTIVE rotation -- once
+            # yaw_rate settles it goes to zero too, leaving no force
+            # to correct a wrong-but-stationary heading. Confirmed in
+            # telemetry: zero-proportional gating caused world_b to
+            # park at ~180 deg for 40+ seconds, only correcting in one
+            # big swing right at the end. Add back a SMALL, tightly
+            # capped proportional pull (1/4 of KP_BEAR, capped low) so
+            # the vehicle continuously walks back toward the turbine
+            # instead of parking -- weak enough not to re-trigger the
+            # original large-swing disturbance, unlike full
+            # bearing_hold() at this stage.
+            damp = max(-0.15, min(0.15, -0.35 * self.yaw_rate))
+            b = self.current_bearing()
+            point = 0.0
+            if b is not None:
+                point = max(-0.08, min(0.08, 0.25 * self.KP_BEAR * b))
+            self.get_logger().info(f"  [desc-dbg] t={self._elapsed():.0f} b={math.degrees(b) if b is not None else 999:.1f} yaw_rate={math.degrees(self.yaw_rate):.1f} point={point:.3f} damp={damp:.3f}")
+            self._full(0, 0, dep, damp + point)
+            return
+
         yaw_c = self.bearing_hold()
         self._full(0, 0, dep, yaw_c)
 
         b = self.current_bearing()
-        if derr < 2.0 and b is not None and abs(b) < math.radians(12) \
+        if b is not None and abs(b) < math.radians(12) \
                 and abs(self.yaw_rate) < math.radians(4):
             self.get_logger().info(
                 f"Turbine locked (b={math.degrees(b):.0f}°, "
@@ -688,15 +951,28 @@ class InspectV8(Node):
             self._full(0, 0, dep, yaw_c)
             return
 
-        # Ramp surge authority over the first 3s of CLOSE_IN. Jumping
+        # Ramp surge authority over CLOSE_IN_SURGE_RAMP_T seconds. Jumping
         # straight to V_SURGE_MAX induced enough disturbance torque to
         # throw bearing_hold from ~0° to 168° before it could recover
         # (observed directly in telemetry) — that swing is also what
         # produced the diagonal, crab-walking approach instead of a
         # straight-in one, since sway kept fighting a heading error
         # that hadn't caught up yet.
-        ramp_t = min(1.0, self._elapsed() / 3.0)
+        ramp_t = min(1.0, self._elapsed() / self.CLOSE_IN_SURGE_RAMP_T)
         v_cap  = self.V_SURGE_MAX * ramp_t
+
+        # Crab-correction priority (see CRAB_VY_LIMIT/CRAB_YAW_RATE_LIMIT
+        # docstrings above): linearly throttle surge authority down as
+        # EITHER measured sway OR measured yaw rate grows, floored so the
+        # approach never fully stalls under sustained coupling. The yaw
+        # rate term is the preventive half of this -- it reacts to a
+        # developing rotation directly, before it grows into a real
+        # heading swing that then shows up as sway (which is what the vy_b
+        # term alone can only catch after the fact).
+        crab_vy  = 1.0 - abs(self.vy_b) / self.CRAB_VY_LIMIT
+        crab_yaw = 1.0 - abs(self.yaw_rate) / self.CRAB_YAW_RATE_LIMIT
+        crab_factor = max(self.CRAB_CAP_FLOOR, min(crab_vy, crab_yaw))
+        v_cap *= crab_factor
 
         r = self.tracker.range()
         v_sp = max(-self.V_SURGE_MAX,
@@ -704,6 +980,12 @@ class InspectV8(Node):
                        self.KP_RANGE * (r - self.SCAN_DIST)))
         if self.sonar_valid and self.sonar_range < self.SONAR_STOP:
             v_sp = -0.3
+        elif (not self.sonar_valid and self.sonar_invalid_since is not None
+                and now - self.sonar_invalid_since > self.SONAR_DROPOUT_CAUTION_T):
+            v_sp = min(v_sp, self.SONAR_DROPOUT_CREEP)  # sonar can't
+            # confirm what's actually in front of the vehicle right now
+            # -- creep rather than either stop dead (deadlocks, see
+            # SONAR_DROPOUT_CREEP) or keep closing in blind at full speed
         if b is not None and abs(b) > math.radians(15):
             v_sp = 0.0
             self._reset_vel_integrators()  # kill accumulated windup —
@@ -719,20 +1001,34 @@ class InspectV8(Node):
             f"  CLOSE_IN r={r:.1f}m "
             f"b={(math.degrees(b) if b is not None else 999):.0f}° "
             f"v_sp={v_sp:.2f} vx_b={self.vx_b:.3f} vy_b={self.vy_b:.3f} "
-            f"ux={ux:.2f}", throttle_duration_sec=2.0)
+            f"yaw_rate={math.degrees(self.yaw_rate):.1f}°/s "
+            f"ux={ux:.2f} uy={uy:.2f} crab={crab_factor:.2f}",
+            throttle_duration_sec=2.0)
 
         # Conjunctive exit predicate -- added a velocity-settled check
         # (|vx_b| < 0.08) so CLOSE_IN can't hand off to SCAN while still
         # carrying meaningful surge momentum, which previously let SCAN
         # begin misaligned and trace a curved path instead of a clean
         # vertical sweep (same failure mode already fixed for TRANSIT's
-        # descend->SCAN handoff).
+        # descend->SCAN handoff). Added the matching |vy_b| check for
+        # the same reason: telemetry showed sway sitting at 0.13-0.21
+        # m/s right through the old handoff, which is exactly what let
+        # SCAN face 0 begin displaced off to one side instead of
+        # centered on the intended approach line.
         if (abs(r - self.SCAN_DIST) < 0.7
                 and abs(self.pz - self.D_BASE) < self.DEPTH_TOL_PHASE
                 and b is not None and abs(b) < math.radians(10)
-                and abs(self.vx_b) < 0.08):
+                and abs(self.vx_b) < 0.08
+                and abs(self.vy_b) < 0.08):
             self.get_logger().info(
                 f"At r={r:.1f}m → SCAN face {self.face_idx}")
+            self._go(S.SCAN)
+            return
+
+        if self._elapsed() > self.CLOSE_IN_TIMEOUT:
+            self.get_logger().warn(
+                f"  CLOSE_IN timeout → SCAN anyway "
+                f"(vx_b={self.vx_b:.3f} vy_b={self.vy_b:.3f})")
             self._go(S.SCAN)
 
     # ────────────────────────────────────────────────────────────
@@ -754,6 +1050,13 @@ class InspectV8(Node):
             vx_sp = 0.0
         if self.sonar_valid and self.sonar_range < self.SONAR_STOP:
             vx_sp = -0.3
+        elif (not self.sonar_valid and self.sonar_invalid_since is not None
+                and now - self.sonar_invalid_since > self.SONAR_DROPOUT_CAUTION_T):
+            # Same reasoning as CLOSE_IN's SONAR_DROPOUT_CAUTION_T --
+            # confirmed via telemetry that a real yaw kick during SCAN
+            # landed the tick right after a sonar dropout here too, not
+            # just during CLOSE_IN's approach.
+            vx_sp = min(vx_sp, self.SONAR_DROPOUT_CREEP)
 
         ux, uy = self.vel_ctrl(vx_sp, 0.0)
         self._full(ux, uy, dep, yaw_c)
@@ -860,6 +1163,13 @@ class InspectV8(Node):
                             self.KP_RANGE * (r - self.SCAN_DIST)))
             if self.sonar_valid and self.sonar_range < self.SONAR_STOP:
                 vx_sp = -0.3
+            elif (not self.sonar_valid and self.sonar_invalid_since is not None
+                    and now - self.sonar_invalid_since > self.SONAR_DROPOUT_CAUTION_T):
+                # Same reasoning as CLOSE_IN/SCAN's SONAR_DROPOUT_CAUTION_T
+                # -- caps radial closing speed only, orbit progress (vy_sp)
+                # is left alone since it's not the axis that closes
+                # distance to the structure.
+                vx_sp = min(vx_sp, self.SONAR_DROPOUT_CREEP)
 
             ux, uy = self.vel_ctrl(vx_sp, vy_sp)
             self._full(ux, uy, dep, yaw_c)
