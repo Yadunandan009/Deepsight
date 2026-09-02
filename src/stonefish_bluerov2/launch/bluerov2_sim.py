@@ -1,7 +1,8 @@
 import os
 from launch_ros.actions import Node
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 
@@ -14,12 +15,22 @@ def generate_launch_description():
     ekf_config_path = os.path.join(stonefish_bluerov2_dir, 'ekf.yaml')
     rviz_config_path = os.path.join(stonefish_bluerov2_dir, 'rviz', 'bluerov2_conf.rviz')
 
+    # 2a. Scenario selection -- was previously hardcoded to bluerov2_turbine.scn
+    # despite CLAUDE.md documenting `scenario:=<name>` as a real launch argument.
+    # It wasn't; this restores that documented behavior.
+    scenario_arg = DeclareLaunchArgument(
+        'scenario',
+        default_value='bluerov2_turbine',
+        description='Scenario name (without .scn) from stonefish_bluerov2/scenarios/'
+    )
+    scenario = LaunchConfiguration('scenario')
+
     # 3. Stonefish Simulator
     launch_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(stonefish_ros2_dir, 'launch', 'stonefish_simulator.launch.py')),
         launch_arguments={
             'simulation_data': os.path.join(stonefish_bluerov2_dir, 'data', ''),
-            'scenario_desc': os.path.join(stonefish_bluerov2_dir, 'scenarios', 'bluerov2_turbine.scn'),
+            'scenario_desc': [os.path.join(stonefish_bluerov2_dir, 'scenarios') + os.sep, scenario, '.scn'],
             'simulation_rate': '200.0',
             'window_res_x': '960',
             'window_res_y': '1056',
@@ -114,6 +125,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        scenario_arg,
         launch_include,
         ardusim_patch,
         depth_bridge,
