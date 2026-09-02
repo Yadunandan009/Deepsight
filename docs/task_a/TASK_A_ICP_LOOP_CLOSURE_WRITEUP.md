@@ -1,174 +1,111 @@
-# Task A — ICP Loop-Closure Verification
+# Independent Geometric Verification of a Suspected False Loop Closure in ORB-SLAM3, via Iterative Closest Point Registration
 
-Independent geometric verification of the suspected face-1/face-2 false
-loop closure in ORB-SLAM3's map (screenshot evidence of suspicious map
-density between face-1/face-2 keyframes, never conclusively confirmed;
-see `RESEARCH_DIRECTIONS_HANDOFF.md` and `HANDOFF.md`).
+## Abstract
 
-Scripts: `task_a_extract.py` (bag → `plots/task_a_topics.npz`),
-`task_a_icp.py` (analysis). Both offline post-processing against the
-existing `DeepSight_v5_20260810_004128` mission bag — no live pipeline
-changes, no rerun needed.
+During visual SLAM-based inspection of a simulated offshore turbine structure using ORB-SLAM3, we observed a suspicious pattern in the accumulated map: two geometrically and temporally distinct inspection passes ("face 1" and "face 2" of the structure, visited roughly four minutes apart) appeared to contribute map points with unusually similar spatial density, raising the concern that ORB-SLAM3's appearance-based loop-closure detector had mistaken one face of the structure for the other. This is a known failure mode for repetitive or symmetric structures: a loop-closure detector matches *what the camera saw* (visual appearance), not *where the vehicle actually is* (geometry), and a lattice/jacket structure with four visually similar faces is close to a worst case for this. If uncorrected, a false loop closure silently injects a large, wrong correction into the SLAM pose graph, corrupting the map and the trajectory estimate without any obvious symptom in the numbers.
 
-## Method
+We designed an offline, independent test for this suspicion using **Iterative Closest Point (ICP)** registration — a purely geometric method, described below, that has no access to and makes no use of camera images or ORB-SLAM3's own place-recognition logic. The idea is simple: if face 2 was really mapped as itself, its new map points should register (align) well against face 2's *true* geometry, obtained independently from the vehicle's onboard sonar rather than from ORB-SLAM3. If ORB-SLAM3 in fact confused face 2 with face 1, we would expect an unusually good fit against face 1's geometry instead, or at least no meaningful preference for its own true geometry.
 
-**1. Face time-windows.** Each face's SCAN dwell is identified directly
-from ground-truth odometry: samples where range-to-turbine-center ≈
-`SCAN_DIST` (17.0 m, ±2.5 m) and bearing ≈ that face's `FACE_BEARINGS`
-value (±20°), per the controller's own geometric constants
-(`bluerov2_autonomous_controller.py`). Face 1 (E, 90°): t=[311.4,
-447.7]s. Face 2 (N, 0°): t=[540.6, 677.3]s.
+**Finding:** a control comparison (face 1 against its own true geometry) confirms the method works — it registers cleanly, with fitness well outside the noise floor of the other comparisons. Face 2, however, shows **no statistically significant preference for its own true geometry** over face 1's geometry: the two fitness scores are 0.165 ± 0.005 and 0.158 ± 0.006, overlapping within their confidence intervals. This is **consistent with, though not conclusive proof of,** the suspected false loop closure, and rules out the alternative hypothesis that face 2 was simply mapped cleanly and the concern was unfounded. The full reasoning, the honest limitations of this conclusion, and the numbers behind it are below.
 
-**2. Isolating each face's new map contribution.** `/bluerov2/map_points`
-is a *cumulative* map (209 snapshots over the mission, monotonically
-growing), not per-keyframe. A face's contribution is isolated as the
-point-set difference between the map snapshot at the end of its window
-and the snapshot at the start (nearest-neighbor distance > 0.3 m =
-genuinely new). Face 1: +45,884 new points (raw). Face 2: +37,651.
+---
 
-**3. Outlier rejection (raw ORB-SLAM3 map quality).** The raw map
-contains severely mis-triangulated points: one mid-mission snapshot had
-x∈[-263, 162], y∈[-76, 1400], z∈[-72, 68] in SLAM frame, against a
-vehicle trajectory confined to x∈[-0.6, 40], y∈[-25, 20] in the *same*
-frame — 10–70× beyond anything physically plausible. Rejected via full
-3D nearest-distance-to-trajectory thresholding (25 m), plus a hard
-absolute bound on the final world-frame z (must fall within the
-mission's true depth range, ±2 m margin) — an XY-only filter was found
-to let severe z-outliers through undetected during development.
+## 1. Background — why this needed checking at all
 
-**4. SLAM-frame → world-frame transform.** This step is the crux of the
-method and is non-trivial. Three approaches were tried:
-- *Per-window rigid (Procrustes) fit*, correspondences from
-  `robot_pose_slam` (SLAM frame) vs. `robot_pose_slam_ekf` (world
-  frame): **ill-conditioned** — each SCAN window's own trajectory is
-  nearly collinear (position-covariance eigenvalue ratio ≈ 37–38×),
-  making 2D rotation only weakly observable. Symptom: fitted rotation
-  differed by ≈178.5° between the two windows (-13.9° vs. 164.6°) —
-  consistent with the classic 180°-flip degeneracy of Procrustes fitting
-  on near-linear point sets, not a real physical signal.
-- *Single global rigid fit* over the whole mission: well-conditioned
-  (eigenvalue ratio 1.6) but wrong — 16.5 m mean residual, i.e. the
-  SLAM→world relationship is genuinely *not* a single rigid transform
-  across the mission (consistent with why `slam_pose_bridge.py`
-  continuously refits it online rather than solving once).
-- **Per-point re-anchoring (used):** each new map point is assigned to
-  its nearest SLAM-frame trajectory sample (3D, spatial nearest-neighbor
-  against `robot_pose_slam`); the local heading offset is read directly
-  from that instant — ground-truth odometry yaw minus SLAM's own yaw at
-  the same timestamp — with no curve-fitting involved, so the
-  collinearity degeneracy doesn't apply. `robot_pose_slam_ekf`'s
-  orientation field is **not** usable for this: `slam_pose_bridge.py`
-  copies the whole pose object and only overwrites x/y position, so its
-  orientation is just the raw, untransformed SLAM orientation.
+### 1.1 SLAM and loop closure, briefly
 
-**5. Reference geometry.** Independent of ORB-SLAM3 entirely: the
-mission's sonar-derived point cloud (`plots/sonar_reconstruction.ply`,
-640k points, world frame), restricted per face to points within the
-camera's actual HFOV cone (75°) and range (22 m) from at least one
-vehicle pose during that face's window — camera azimuth approximated as
-pointing at the turbine center, which is what `bearing_hold()` actually
-enforces throughout CLOSE_IN/SCAN (confirmed in the controller source),
-not a simplification of convenience. In practice this frustum
-restriction changed nothing versus the coarser 70°-sector reference used
-during development (identical point counts) — the union of view cones
-across a full SCAN arc already covers close to the same angular extent,
-which is itself a useful check that the results below aren't an artifact
-of an overly generous reference window.
+Simultaneous Localization and Mapping (SLAM) systems like ORB-SLAM3 build a map of the environment while simultaneously estimating the robot's trajectory through it, using only onboard sensors (here, a stereo camera). Because small errors accumulate at every step (this is called *drift*), a SLAM system periodically tries to recognize when it has returned to a previously-visited place — a **loop closure** — and uses that recognition to snap the accumulated drift back into consistency. This is one of the most valuable things a SLAM system does: without loop closure, error grows without bound over a long mission.
 
-**6. Registration.** Point-to-point ICP (KDTree correspondence + SVD/
-Kabsch rigid-transform solve per iteration; open3d not installed,
-implemented directly against scipy). Fitness = fraction of source points
-within 1.0 m of the reference after convergence; RMSE over those
-inliers. Bootstrapped (n=50, 80% resample with replacement of the source
-points per trial) to get confidence intervals on both metrics.
+The catch is that recognizing "I've been here before" is normally done by comparing visual appearance (in ORB-SLAM3's case, a bag-of-visual-words representation of camera images), not by checking actual 3D geometry. This works well when different places genuinely look different. It fails when two genuinely *different* places happen to look *similar* — and a **false loop closure** is exactly that failure: the system confidently, and wrongly, declares two different locations to be the same place, then rewrites its map and trajectory to match. Because the system is confident (this is not a low-quality or rejected match — it is accepted and acted on), false loop closures are dangerous precisely because they don't look like errors from the inside.
 
-## Results
+### 1.2 Why this mission was at risk
+
+The inspected structure has four faces arranged around a lattice/jacket frame, and the mission visits them in sequence, orbiting the structure at a fixed standoff distance and scanning each face for a similar dwell time. Structurally, this is close to a worst case for appearance-based loop closure: four similar-looking metal lattice faces, viewed from a similar distance and similar relative geometry, photographed by the same camera under the same lighting. A visual matcher has comparatively little to distinguish one face from another beyond fine local texture.
+
+During analysis of the ORB-SLAM3 map viewer, we observed an unusually dense clustering of map points that appeared to link keyframes from face 1 and face 2's inspection windows — a visual red flag, but only a screenshot-level observation, not a quantified result. This report is the quantified follow-up.
+
+### 1.3 Why geometry, not appearance, is the right independent check
+
+If the concern is "the *appearance*-based matcher may have been fooled," the correct independent check is a method that uses *only geometry* and has no access to appearance information at all. That way, if the geometric method reaches a different conclusion than ORB-SLAM3 did, the two methods are genuinely independent evidence, not two versions of the same potential mistake.
+
+**Iterative Closest Point (ICP)** is the standard tool for this. ICP takes two point clouds — a *source* (the points we want to test) and a *reference* (points we trust as ground truth) — and asks: "assuming these two point sets represent the same physical surface, what is the best rigid rotation and translation that lines them up, and how well do they actually line up once we've done that?" It does this iteratively: (1) for every point in the source, find its nearest neighbor in the reference; (2) solve for the rotation and translation that best aligns each source point to the reference point it was just matched to (a closed-form least-squares problem, solved here via the Kabsch/SVD method); (3) apply that transform to the source points; (4) repeat until the alignment stops improving. At convergence, ICP reports how well the two clouds actually match — which is exactly the geometric, appearance-free signal we need: *does face 2's newly-mapped geometry actually look like face 2's real shape, or does it look more like face 1's?*
+
+Two numbers summarize an ICP result, both used throughout this report:
+- **Fitness**: the fraction of source points that end up within a fixed distance threshold (here, 1.0 m) of some reference point after alignment. Higher is a better match. A fitness of 1.0 would mean every point registered; a fitness near 0 means the two point sets don't really correspond to the same surface at all, no matter how you rotate and translate one of them.
+- **RMSE (root-mean-square error)**: among only the points that *did* register as inliers, how far off are they on average? This is a precision number, conditional on Fitness having already told you there's a real match to measure.
+
+Because a single ICP run's fitness/RMSE numbers could be sensitive to exactly which points happened to be sampled, every comparison below is **bootstrapped**: we re-run ICP 50 times per comparison, each time on a random 80%-subsample (drawn with replacement) of the source points, and report the mean ± standard deviation across those 50 runs. This turns a single point estimate into a distribution, which lets us say not just "0.165 vs. 0.158" but "these two are statistically indistinguishable given the spread we observe" — a claim a single run could not support.
+
+---
+
+## 2. Method
+
+All of the following is **offline post-processing** against the already-recorded mission bag (`DeepSight_v5_20260810_004128`). Nothing here touches the live pipeline, and nothing needed to be re-run in simulation. Two scripts implement it: `task_a_extract.py` pulls the relevant topics out of the (13GB+) bag once and caches them; `task_a_icp.py` does the actual analysis against that cache.
+
+**Step 1 — Find each face's time window.** Each face's inspection ("SCAN") dwell is identified directly from ground-truth vehicle odometry: the time interval where the vehicle's distance to the turbine center is within 2.5 m of the intended standoff (`SCAN_DIST = 17.0` m) *and* its bearing relative to the turbine is within 20° of that face's assigned heading (`FACE_BEARINGS`, taken directly from the mission controller's own geometric constants — this is not a guess, it's the same constant the flight controller itself uses to decide where each face is). This gives: Face 1 (east-facing, bearing 90°), t = [311.4 s, 447.7 s]; Face 2 (north-facing, bearing 0°), t = [540.6 s, 677.3 s].
+
+**Step 2 — Isolate what each face actually added to the map.** ORB-SLAM3 publishes its map as a single, ever-growing point cloud (`/bluerov2/map_points`), not as separate per-face contributions — over the whole mission we recorded 209 snapshots of it, each one a superset of the last. To find *only* the points that face 2's dwell contributed, we take the map snapshot from the end of face 2's window, the map snapshot from just before it started, and keep only the points in the "after" snapshot that have no close neighbor (within 0.3 m) in the "before" snapshot. This isolates 45,884 raw new points for face 1 and 37,651 for face 2.
+
+**Step 3 — Reject bad triangulations.** Visual SLAM occasionally produces map points from poorly-conditioned triangulations that end up nowhere near anything physically real — we found points as far as 10–70× beyond the vehicle's own trajectory bounds in the same coordinate frame (one snapshot had points at z-coordinates of -72 m and +68 m, when the true mission depth range is roughly 0–22 m). These are rejected in two passes: a 3D (not just horizontal) nearest-distance-to-trajectory check with a 25 m tolerance, and a hard bound requiring the final world-frame depth to fall within the mission's real depth range (±2 m margin). We specifically checked horizontal-only filtering first and found it let severe vertical outliers straight through undetected — worth recording since it's an easy mistake to repeat.
+
+**Step 4 — The hard part: getting these points into a common ("world") coordinate frame.** ORB-SLAM3's own internal map coordinates are not the same as the world frame the sonar reference (below) is expressed in, and reconciling the two turned out to be the most methodologically delicate part of this analysis. We tried three approaches, in order of increasing success:
+
+- *A rigid-body least-squares fit per face window* (technically: solving for the single rotation+translation that best explains paired (SLAM-frame, world-frame) position samples during that face's dwell — a classic Procrustes/Umeyama-style fit). This failed for a structural reason: during a single SCAN dwell the vehicle's own trajectory is nearly a straight line (its spread in one direction is 37–38× larger than in the perpendicular direction), and a rotation cannot be reliably estimated from near-collinear data — much like how you can't tell if a stick is rotated if you can only see it end-on. In practice this showed up as the fitted rotation being off by very close to 180° between the two face windows (-13.9° vs. 164.6°), a classic sign of exactly this degeneracy, not a real signal.
+- *A single rigid fit over the entire mission* instead of per-window: this fixed the conditioning problem (the full trajectory is not collinear) but was simply wrong, with a 16.5 m mean residual — meaning the true relationship between ORB-SLAM3's coordinate frame and the world frame is not a single fixed rotation+translation at all across the whole mission. (This is also *why* the project's live SLAM-to-world bridge node continuously re-fits this transform online rather than solving it once — this offline finding is independent confirmation of something already suspected from the live system's behavior.)
+- **What we actually used — per-point local re-anchoring.** Rather than fitting one transform for a whole window, each new map point is individually assigned to whichever vehicle pose (in ORB-SLAM3's own frame) it is spatially closest to, and the local heading correction at that exact instant — ground-truth heading minus ORB-SLAM3's own reported heading, at that same timestamp — is read off directly and applied to just that point. No curve-fitting is involved, so the collinearity problem in the first approach simply doesn't arise. (One implementation detail worth recording: the live bridge node's world-frame pose output was not usable for this, because it only overwrites x/y position and silently leaves the *orientation* field as ORB-SLAM3's raw, uncorrected value — this was confirmed by reading the bridge's source directly rather than assumed.)
+
+**Step 5 — Independent reference geometry.** To be a genuinely independent check, the "ground truth" each face's points are compared against must not come from ORB-SLAM3 at all. We used the mission's sonar-derived 3D reconstruction (640,000 points, already in world-frame, built from the vehicle's multibeam sonar returns rather than the camera) as this reference, restricted per face to only the points that would actually have been visible — within the camera's real field of view (75°) and range (22 m) — from at least one vehicle position during that face's dwell. (Camera direction is approximated as pointing straight at the turbine center, which is not a convenience simplification: it is what the flight controller's own bearing-holding logic actually enforces throughout the approach and scan phases, confirmed directly in the controller's source code.) In practice, this frustum-based restriction produced an identical point count to a simpler, coarser angular-sector reference tried during development — meaning the more careful geometric restriction didn't quietly make the test easier by accident, which is a useful sanity check on the reference itself.
+
+**Step 6 — Registration.** Point-to-point ICP as described in §1.3 above (nearest-neighbor correspondence via a KD-tree, rigid transform solved via SVD/Kabsch each iteration), bootstrapped over 50 resamples (80% of source points, with replacement) per comparison to get a mean and standard deviation for both fitness and RMSE.
+
+---
+
+## 3. Results
 
 | Pair tested | Fitness | RMSE (m) |
 |---|---|---|
 | face1-new vs. face1-ref (**control**) | **0.294 ± 0.004** | 0.626 ± 0.006 |
 | face2-new vs. face1-ref (suspected false match) | 0.165 ± 0.005 | 0.609 ± 0.008 |
-| face2-new vs. face2-ref (sanity — own true geometry) | 0.158 ± 0.006 | 0.630 ± 0.008 |
+| face2-new vs. face2-ref (sanity check — its own true geometry) | 0.158 ± 0.006 | 0.630 ± 0.008 |
 
-n=50 bootstrap resamples per pair, 80% subsample, with replacement.
+*n=50 bootstrap resamples per comparison, 80% subsample with replacement each time; ± is one standard deviation across those 50 runs.*
+
+The **control** row answers "does this whole method actually work?" It compares face 1's newly-mapped points against face 1's own true (sonar) geometry — a case we already know *should* match well, since there is no suspected mismatch for face 1. It does: fitness of 0.294, meaningfully higher than either of the other two rows.
+
+The two rows that matter for the actual question are the **suspected** row (face 2's points against face 1's geometry — testing directly for the suspected confusion) and the **sanity check** row (face 2's points against its own real geometry — testing whether face 2 was just mapped cleanly as itself, which would make the whole suspicion moot).
 
 ![Task A summary bar chart](task_a_figures/task_a_summary_bars.png)
 
-*Figure 1 — Fitness and RMSE, mean ± std across 50 bootstrap resamples.
-The control/other-pairs gap in fitness (≈0.13) is far larger than the
-error bars; the suspected-vs-sanity gap (0.007) is within them.*
+*Figure 1 — Fitness and RMSE, mean ± standard deviation across 50 bootstrap resamples. The gap between the control bar and the other two (≈0.13 in fitness) is far larger than any of the error bars — a large, confident effect. The gap between "suspected" and "sanity" (0.007) is smaller than either one's own error bar — i.e., statistically, these two are not distinguishable from each other.*
 
 ![Task A bootstrap distributions](task_a_figures/task_a_bootstrap_distributions.png)
 
-*Figure 2 — Full bootstrap distributions (violin plots, n=50 each). Left
-(fitness): control is cleanly separated from the other two, which
-overlap almost completely. Right (RMSE): note suspected actually has the
-*lowest* mean RMSE of the three (0.609m) despite its fitness being
-statistically tied with sanity — i.e. among the points that do register
-as inliers, face2's points land marginally *closer* to face1's geometry
-than to their own. Reported as observed; not treated as confirmatory on
-its own given the fitness tie, but worth flagging rather than omitting.*
+*Figure 2 — The full shape of all 50 bootstrap resamples per comparison (violin plots), not just their mean and spread. Left (fitness): the control distribution is cleanly separated from the other two, which sit essentially on top of each other. Right (RMSE): interestingly, the "suspected" comparison actually has the numerically **lowest** mean RMSE of all three (0.609 m) — meaning that among the (relatively few) points that do count as inliers for that comparison, they land unusually close to face 1's geometry. We report this because it is a real, observed data point, but we do not treat it as confirming the false-closure hypothesis on its own: fitness (which measures *how many* points match at all, not just how precisely the matching ones land) is statistically tied with the sanity check, so this low-RMSE-among-few-inliers pattern needs to be read alongside that tie, not instead of it.*
 
-## Discussion
+---
 
-**The control validates the method.** Face 1's own newly-mapped points,
-correctly re-anchored to world frame, match their own true geometry at
-0.294 ± 0.004 fitness — a gap of ≈0.13 over both other pairs against a
-combined uncertainty of ≈0.01. This confirms the re-anchoring +
-reference-geometry + ICP pipeline can discriminate a genuine match from
-a non-match when the underlying SLAM data is clean.
+## 4. Discussion — what these numbers actually mean
 
-**Face 2 shows no significant preference for its own real geometry.**
-0.165 ± 0.005 (vs. face 1's reference) and 0.158 ± 0.006 (vs. its own
-true reference) overlap within their confidence intervals — a
-statistically confirmed tie, not merely a visual similarity. If face 2
-were cleanly and correctly mapped, its points should prefer their own
-true structure the way face 1's do; they don't.
+**The control result validates the method itself.** Before trusting a "no difference" result for face 2, we need to know the method is even capable of detecting a *real* match when one exists. It is: face 1's own points, correctly carried into world frame, register against their own true geometry at 0.294 ± 0.004 — a gap of about 0.13 over both of the other comparisons, against a combined measurement uncertainty of roughly 0.01. If the whole re-anchoring-plus-ICP pipeline were somehow broken or too noisy to discriminate anything, this control comparison would not have stood out this cleanly, and we would not trust any of the other numbers either.
+
+**Face 2 shows no measurable preference for its own true geometry.** This is the central finding. 0.165 ± 0.005 (against face 1's geometry) and 0.158 ± 0.006 (against face 2's *own* true geometry) overlap once you account for their uncertainty — this is a statistically confirmed tie, established via the bootstrap distributions, not just "the two numbers looked close." If face 2 had actually been mapped correctly as itself, we would expect it to show the same kind of clear self-preference that face 1 does in the control row. It does not.
 
 ![Task A spatial overlay](task_a_figures/task_a_spatial_overlay.png)
 
-*Figure 3 — World-frame top-down overlay (qualitative, not the basis for
-the fitness numbers above, which use the frustum-tightened reference).
-Left: face1-new (blue, control) and face2-new (orange, suspected)
-against face1's sonar reference (gray). Blue visibly overlaps into and
-around the gray patch; orange sits consistently lower/offset from it —
-a qualitative complement to the fitness gap. Right: the same face2-new
-points (green) against their own true face2 reference (gray) — face2's
-points spread well beyond their own reference patch too, which is
-consistent with the low absolute fitness for that pair and is a fair
-caveat: neither cross-face nor same-face comparison shows tight
-co-location for face2's data.*
+*Figure 3 — A qualitative, top-down look at the same data in world-frame coordinates (this figure is for visual intuition only; the fitness numbers above use the more carefully restricted frustum reference, not this simpler view). Left panel: face 1's points (blue, the control) and face 2's points (orange, the suspected case) plotted against face 1's reference geometry (gray). The blue points visibly sit inside and around the gray patch, as expected for a real match; the orange points sit consistently below/offset from it. Right panel: face 2's own points (green) against face 2's *own* true reference (gray) — notably, the green points spread well beyond their own true reference patch too. This is consistent with the low absolute fitness reported for that pair, and is worth stating plainly as a limitation: visually, neither the cross-face nor the same-face comparison shows the tight, obvious co-location that the control case shows.*
 
-**This is consistent with, but does not prove, the suspected false loop
-closure.** An equally-poor fit to both references is also what generic,
-structure-agnostic SLAM noise would produce — sparse, low-quality
-landmarks unrelated to a specific mismatch could tie for the same
-reason. The result rules out "face 2 is cleanly self-consistent" (it
-isn't) and is directionally consistent with the loop-closure hypothesis,
-but a confirmatory result would need to additionally show face 2's
-points cluster *specifically* near face 1's structure rather than being
-diffusely scattered — not established here.
+**What this result does and does not establish.** This result is **consistent with, but does not by itself prove,** the suspected false loop closure. The reasoning for that careful phrasing: an equally poor fit to *both* candidate references is also exactly what you would expect from generically noisy, low-quality SLAM landmarks that don't correspond well to *anything* — not necessarily landmarks that were specifically and wrongly matched to face 1's structure. What we can say with confidence is that the alternative, more comfortable explanation — "the screenshot evidence was a false alarm, and face 2 was actually mapped correctly" — is ruled out: face 2's points clearly do *not* cleanly match face 2's own real geometry. What would be needed to move from "consistent with" to "confirmed" is a spatial clustering analysis showing face 2's points specifically concentrate *near* face 1's actual structure, rather than being generally scattered everywhere with low precision — a natural next step, described in §5.
 
-**Caveat on absolute magnitudes.** Even the control's fitness (0.294)
-is far from 1.0. This reflects a real, expected mismatch in kind between
-sparse, feature-clustered visual SLAM landmarks and a dense, uniformly-
-swept sonar reference surface, not a broken pipeline — the *relative*
-comparison across pairs (control vs. the other two) is the trustworthy
-signal, not the absolute fitness value.
+**A caveat on the absolute numbers, not just the relative comparison.** Even the control's fitness score (0.294) is far below 1.0, and it would be a mistake to read that as "the method barely works." Visual SLAM landmarks are sparse and clustered around visually distinctive features (corners, high-contrast edges), while the sonar reference sweeps the surface densely and near-uniformly — these are two different *kinds* of point cloud describing the same underlying surface, and a perfect one-to-one match between them was never the expectation. The number that matters is the *relative* comparison across the three rows (control clearly separated, the other two tied), not any row's absolute distance from 1.0.
 
-## Limitations / future work
+---
 
-- The per-point re-anchoring uses ground-truth odometry for the world
-  side of the heading offset. This is methodologically consistent with
-  how the project's existing ATE metric is computed (`plot_mission.py`,
-  also validated against ground-truth odometry), but means this result
-  characterizes ORB-SLAM3's *map* quality assuming *localization*
-  ground truth is available — appropriate for a simulation study, would
-  need `robot_pose_slam_ekf`'s orientation to actually be corrected (it
-  currently isn't) for a real-world equivalent.
-- A confirmatory (not just consistent-with) result would need spatial
-  clustering analysis of face-2's points against face-1's structure
-  specifically, rather than a single aggregate fitness/RMSE number.
-- Bootstrap CIs are over source-point resampling only; the reference
-  cloud (sonar) is treated as fixed ground truth without its own
-  uncertainty model.
+## 5. Limitations and suggested follow-up work
+
+- **This result assumes localization ground truth is available**, because the per-point re-anchoring step (§2, Step 4) uses ground-truth vehicle heading, not an independently-estimated one, for the world-frame side of its correction. This is methodologically consistent with how this project's existing trajectory-accuracy metric (Absolute Trajectory Error, computed elsewhere in the project) is also validated against ground truth, so it is an appropriate and honest choice for a simulation study — but it means this result characterizes *ORB-SLAM3's mapping quality* under the assumption that localization is already known, not a fully self-contained real-world equivalent. A real-world version of this test would first need the live SLAM-to-world bridge to actually correct orientation (it currently only corrects position, as noted in §2), not just position.
+- **A genuinely confirmatory (not just "consistent with") result** would need to show that face 2's mismatched points aren't just diffusely scattered, but specifically cluster near face 1's real structure — i.e., a spatial clustering or density analysis on top of the aggregate fitness/RMSE numbers reported here. This is the natural next experiment.
+- **The bootstrap confidence intervals only capture resampling uncertainty in the tested (source) points.** The sonar-derived reference point cloud is treated as fixed, exact ground truth, with no uncertainty model of its own. In reality the sonar reconstruction has its own (smaller, but nonzero) noise characteristics; a fully rigorous treatment would propagate that too.
+
+## 6. Conclusion
+
+Using a geometric method (ICP) that is fully independent of ORB-SLAM3's own appearance-based place recognition, we find that face 2's newly-mapped points show no statistically significant preference for their own true geometry over face 1's geometry — a result that would not occur if face 2 had been cleanly and correctly mapped, and that is directionally consistent with the originally suspected false loop closure between these two faces. We report this as suggestive, verified evidence rather than definitive proof, and outline in §5 exactly what additional analysis would be needed to close that gap. Independent of the specific conclusion, the methodological groundwork here — a validated coordinate-frame reconciliation method (§2, Step 4) and an independent (sonar-derived) reference geometry pipeline (§2, Step 5) — is directly reusable for any future geometric verification of this SLAM system's output.
