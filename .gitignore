@@ -5,3 +5,10 @@ logs/
 *.bak.*
 __pycache__/
 *.pyc
+
+# Large regeneratable intermediate/cache data -- not source, not results.
+# Regenerate via the corresponding extract/generate script instead of
+# committing (task_a_topics.npz alone was 333MB; GitHub has already
+# flagged large binaries in this repo before).
+plots/task_a_topics.npz
+plots/_mosaic_*.npy

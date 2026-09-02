@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<scenario>
+	<static name="Canyon" type="terrain">
+		<height_map filename="terrain/canyon_heightmap.png"/>
+		<dimensions scalex="0.15" scaley="0.15" height="15.0"/>
+		<material name="Rock"/>
+		<look name="sand"/>
+		<world_transform xyz="$(arg position)" rpy="$(arg orientation)"/>
+	</static>
+</scenario>
