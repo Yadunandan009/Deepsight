@@ -12,3 +12,16 @@ __pycache__/
 # flagged large binaries in this repo before).
 plots/task_a_topics.npz
 plots/_mosaic_*.npy
+
+# ORB-SLAM3 Atlas save and per-run console captures -- regenerated every
+# mission run, not source. Keep the specific log you want as evidence by
+# copying it into docs/ instead of relying on it staying in slam_atlas/.
+slam_atlas/*.osa
+slam_atlas/orb_slam3_console_*.log
+
+# External tool clones checked out for experimentation, not part of this
+# project's own source.
+external/
+
+# Per-trial evaluation bags -- regenerate via eval/run_trial.py.
+eval/bags/

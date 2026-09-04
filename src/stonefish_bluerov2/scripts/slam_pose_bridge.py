@@ -108,6 +108,40 @@ class SlamPoseBridge(Node):
                                          # adopted; real drift between
                                          # refits should be a small
                                          # fraction of this
+        self.REFIT_EMA_ALPHA = 0.2  # each accepted refit moves theta only
+                                         # this fraction of the way toward
+                                         # the freshly-solved candidate,
+                                         # instead of snapping straight to
+                                         # it. Needed because the rotation-
+                                         # only Procrustes fit is poorly
+                                         # conditioned when the correspondence
+                                         # window is dominated by the ROV's
+                                         # own circular orbiting motion during
+                                         # SCAN (two arcs of near-identical
+                                         # shape don't pin down a rotation
+                                         # well) -- confirmed via telemetry
+                                         # showing theta sliding 10-14deg
+                                         # almost every single 5s refit for
+                                         # 30s+ stretches, each step just
+                                         # under REFIT_MAX_DELTA so never
+                                         # individually rejected, but
+                                         # compounding past 100deg of total
+                                         # drift while still "aligned". EMA
+                                         # damping doesn't fix the underlying
+                                         # ill-conditioning but slows any
+                                         # one bad window from being fully
+                                         # adopted, and the cumulative-drift
+                                         # cap below catches the case where
+                                         # the damped drift is still real.
+        self.REFIT_MAX_CUMULATIVE_DRIFT = math.radians(30.0)  # rad -- total
+                                         # drift from the theta at the last
+                                         # lock/re-lock, across any number of
+                                         # small accepted refits. Exceeding
+                                         # this forces a full re-align rather
+                                         # than letting compounding small
+                                         # steps silently reach an arbitrary
+                                         # final orientation.
+        self.theta_at_lock = 0.0
         self.create_timer(self.REFIT_INTERVAL, self._periodic_refit)
 
         # Raw-SLAM-frame jump detector (relocalization artifacts — the
@@ -270,6 +304,20 @@ class SlamPoseBridge(Node):
                     f'alignment (n={n} spread={spread:.1f}m)',
                     throttle_duration_sec=5.0)
                 return
+            # Damp the accepted refit instead of snapping straight to it --
+            # see REFIT_EMA_ALPHA docstring above.
+            theta = cur_theta + self.REFIT_EMA_ALPHA * wrap(theta - cur_theta)
+
+            cumulative = abs(wrap(theta - self.theta_at_lock))
+            if cumulative > self.REFIT_MAX_CUMULATIVE_DRIFT:
+                self.get_logger().warn(
+                    f'Refit drift of {math.degrees(cumulative):.1f}deg since '
+                    f'last lock exceeds '
+                    f'{math.degrees(self.REFIT_MAX_CUMULATIVE_DRIFT):.0f}deg '
+                    f'cap -- forcing full re-align instead of compounding '
+                    f'further (n={n} spread={spread:.1f}m)')
+                self._reset_alignment()
+                return
 
         self.cos_t = math.cos(theta)
         self.sin_t = math.sin(theta)
@@ -277,6 +325,8 @@ class SlamPoseBridge(Node):
         self.ty = e_cy - (self.sin_t * s_cx + self.cos_t * s_cy)
         self.aligned = True
         self.reject_streak = 0
+        if not was_aligned:
+            self.theta_at_lock = theta
         kind = 'refit' if was_aligned else 'solved'
         self.get_logger().info(
             f'SLAM alignment {kind}: theta={math.degrees(theta):+.1f}deg '

@@ -3,6 +3,7 @@ from launch_ros.actions import Node
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 
@@ -25,6 +26,25 @@ def generate_launch_description():
     )
     scenario = LaunchConfiguration('scenario')
 
+    # 2a2. Rendering quality -- was hardcoded to 'high', which drives
+    # sustained GPU load/heat hard enough to cause thermal throttling on
+    # this laptop (observed: 86C, and camera framerate visibly decaying
+    # from ~5Hz to ~3Hz over a 10s window as temperature climbed). Made
+    # tunable so a lighter setting can be tried without editing this file.
+    quality_arg = DeclareLaunchArgument(
+        'rendering_quality', default_value='high',
+        description='Stonefish rendering quality: low|medium|high'
+    )
+    rendering_quality = LaunchConfiguration('rendering_quality')
+
+    # 2b. RViz toggle -- for unattended batch evaluation runs, popping up a
+    # GUI window per trial repeatedly steals desktop focus for no benefit.
+    rviz_arg = DeclareLaunchArgument(
+        'rviz', default_value='true',
+        description='Whether to launch RViz2 (set false for unattended batch runs)'
+    )
+    rviz_enabled = LaunchConfiguration('rviz')
+
     # 3. Stonefish Simulator
     launch_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(stonefish_ros2_dir, 'launch', 'stonefish_simulator.launch.py')),
@@ -34,7 +54,7 @@ def generate_launch_description():
             'simulation_rate': '200.0',
             'window_res_x': '960',
             'window_res_y': '1056',
-            'rendering_quality': 'high',
+            'rendering_quality': rendering_quality,
         }.items()
     )
 
@@ -81,6 +101,17 @@ def generate_launch_description():
         emulate_tty=True,
     )
 
+    # 5d. Image Enhancement — CLAHE + gamma + sharpening for the main
+    # inspection camera, to counter contrast/color loss under degraded
+    # (high-Jerlov) visibility. Publishes alongside the raw feed rather
+    # than replacing it.
+    image_enhancement = Node(
+        package='stonefish_bluerov2',
+        executable='image_enhancement_node.py',
+        name='image_enhancement_node',
+        output='screen',
+    )
+
     # 6. EKF Filter
     ekf_node = Node(
         package='robot_localization',
@@ -97,7 +128,8 @@ def generate_launch_description():
         executable='rviz2',
         name='rviz2',
         output='screen',
-        arguments=['-d', rviz_config_path]
+        arguments=['-d', rviz_config_path],
+        condition=IfCondition(rviz_enabled),
     )
 
     # 8. Static TF (World to Map)
@@ -126,12 +158,15 @@ def generate_launch_description():
 
     return LaunchDescription([
         scenario_arg,
+        quality_arg,
+        rviz_arg,
         launch_include,
         ardusim_patch,
         depth_bridge,
         slam_pose_bridge,
         dvl_bridge,
         adaptive_fusion,
+        image_enhancement,
         ekf_node,
         rviz_node,
         static_tf,

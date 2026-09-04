@@ -33,4 +33,16 @@ docker run -d \
             -r right/image_raw:=/bluerov2/right/image_color \
             -p approximate_sync:=true \
             --params-file $PKG/ros_params/euroc-stereo-ros-params.yaml"
+
+# Capture the container's own stdout (ORB-SLAM3 prints keyframe insertion,
+# loop-closing, and map creation/merging diagnostics directly) to a file --
+# previously this was thrown away once `docker rm -f` wiped the container at
+# the top of the next run, so a genuine Atlas-level event (vs. a ROS-side
+# publish stall) could never be distinguished after the fact.
+LOG_DIR="$HOME/ros2_ws/slam_atlas"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/orb_slam3_console_$(date +%Y%m%d_%H%M%S).log"
+docker logs -f orb_slam3_running > "$LOG_FILE" 2>&1 &
+echo "Capturing container console output to $LOG_FILE"
+
 echo "SLAM container started. To stop cleanly run: ~/ros2_ws/stop_slam.sh"
