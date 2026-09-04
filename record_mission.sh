@@ -3,8 +3,13 @@
 # Usage: bash record_mission.sh
 
 BAG_NAME="DeepSight_$(date +%Y%m%d_%H%M%S)"
+BAG_ROOT="/media/yadunandan/more space/bags"
+mkdir -p "$BAG_ROOT"
 
-echo "Recording to ~/ros2_ws/bags/${BAG_NAME} ..."
+# Root filesystem is at 96% (4.3GB free) as of tonight -- map_points in
+# particular is large and grows for the whole mission. Recording there
+# risks repeating tonight's near-crash from root filling up.
+echo "Recording to ${BAG_ROOT}/${BAG_NAME} ..."
 echo "Press Ctrl+C to stop."
 
 ros2 bag record \
@@ -15,4 +20,4 @@ ros2 bag record \
   /bluerov2/multibeam_raw \
   /bluerov2/multibeam \
   /bluerov2/setpoint/pwm \
-  -o ~/ros2_ws/bags/"${BAG_NAME}"
+  -o "${BAG_ROOT}/${BAG_NAME}"

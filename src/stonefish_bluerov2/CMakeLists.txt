@@ -43,6 +43,7 @@ install(PROGRAMS
   scripts/slam_pose_bridge.py
   scripts/dvl_bridge.py
   scripts/adaptive_fusion_node.py
+  scripts/image_enhancement_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
