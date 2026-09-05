@@ -104,12 +104,33 @@ def generate_launch_description():
     # 5d. Image Enhancement — CLAHE + gamma + sharpening for the main
     # inspection camera, to counter contrast/color loss under degraded
     # (high-Jerlov) visibility. Publishes alongside the raw feed rather
-    # than replacing it.
-    image_enhancement = Node(
+    # than replacing it. One instance per stereo eye with identical
+    # parameters -- ORB-SLAM3's stereo matching needs both eyes processed
+    # the same way, or the mismatched image statistics between an enhanced
+    # left and a raw right would corrupt correspondence. (Previously only
+    # the left eye had an enhancement instance, and neither eye's enhanced
+    # topic was actually wired into ORB-SLAM3's input remap -- see
+    # run_stereo_slam.sh -- so the enhancement was invisible in the
+    # Pangolin viewer regardless of tuning.)
+    image_enhancement_left = Node(
         package='stonefish_bluerov2',
         executable='image_enhancement_node.py',
-        name='image_enhancement_node',
+        name='image_enhancement_node_left',
         output='screen',
+        parameters=[{
+            'input_topic': '/bluerov2/left/image_color',
+            'output_topic': '/bluerov2/left/image_enhanced',
+        }],
+    )
+    image_enhancement_right = Node(
+        package='stonefish_bluerov2',
+        executable='image_enhancement_node.py',
+        name='image_enhancement_node_right',
+        output='screen',
+        parameters=[{
+            'input_topic': '/bluerov2/right/image_color',
+            'output_topic': '/bluerov2/right/image_enhanced',
+        }],
     )
 
     # 6. EKF Filter
@@ -166,7 +187,8 @@ def generate_launch_description():
         slam_pose_bridge,
         dvl_bridge,
         adaptive_fusion,
-        image_enhancement,
+        image_enhancement_left,
+        image_enhancement_right,
         ekf_node,
         rviz_node,
         static_tf,

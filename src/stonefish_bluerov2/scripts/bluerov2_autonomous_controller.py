@@ -71,7 +71,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from std_msgs.msg import Float64MultiArray, Float32
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import PointCloud2, LaserScan, Imu
+from sensor_msgs.msg import PointCloud2, LaserScan
 from stonefish_ros2.msg import DVL
 
 
@@ -378,7 +378,27 @@ class InspectV8(Node):
                              # and yaw_hold_world() so watch CLOSE_IN/SCAN/
                              # RISE for any new twitchiness from stronger
                              # derivative gain amplifying yaw_rate noise.
-    YAW_CMD_LP = 0.25
+    YAW_CMD_LP = 0.25  # per-call blend for _yaw_cmd, shared by bearing_hold()
+                             # and yaw_hold_world(). A hard rate-limit on top
+                             # of this (YAW_CMD_SLEW_RATE, tried 2026-09-05
+                             # at 0.15/s then 0.04/s) was reverted: both
+                             # values, meant to soften a large one-time turn
+                             # at the TRANSIT->RISE phase boundary, instead
+                             # added enough lag into yaw_hold_world's
+                             # feedback loop (tracking a continuously-
+                             # recomputed target, home_psi) to turn a single
+                             # settling turn into a sustained, non-converging
+                             # spin through the rest of RISE and all of
+                             # RETURN_HOME -- confirmed via world_b cycling
+                             # through the full 360deg every ~7-8s for 130+
+                             # seconds, head_err never converging, and three
+                             # separate SLAM map-point crashes in that
+                             # window, worse than the original one-time-turn
+                             # problem it was meant to fix. The real
+                             # question (why does a phase transition need
+                             # such a large yaw authority swing at all) is
+                             # still open and needs a different approach,
+                             # not a slower ramp on the same feedback loop.
 
     # ── Sonar ───────────────────────────────────────────────────
     SONAR_STOP = 2.5
@@ -474,36 +494,40 @@ class InspectV8(Node):
                                  # corresponding motion at all -- gyro
                                  # would NOT have shown those.
                                  #
-                                 # The corroboration signal is now the raw
-                                 # /bluerov2/imu angular_velocity.z
-                                 # (imu_yaw_rate), NOT the EKF's own
-                                 # twist.angular.z. Previously it was the
-                                 # latter, on the reasoning that rate
-                                 # fusion and orientation fusion are
-                                 # different pathways inside the EKF and
-                                 # so wouldn't share a bug. That held for
-                                 # the original glitch (an internal
-                                 # quaternion-representation bug), but a
-                                 # second, distinct failure mode was found
-                                 # 2026-09-04: ORB-SLAM3 losing tracking
-                                 # for ~12s and relocalizing produces a
-                                 # discontinuous SLAM pose input to the
-                                 # EKF, which can corrupt BOTH the EKF's
-                                 # fused orientation AND its fused twist
-                                 # at once (same bag: a 1.83rad/s twist
-                                 # spike with an unexplained sign-reversal
-                                 # overshoot appeared exactly inside a
-                                 # 12s SLAM dropout, while the commanded
-                                 # PWM over that window was a smooth,
-                                 # modest, symmetric ramp -- too gentle to
-                                 # physically produce that rate). In that
-                                 # failure mode the EKF twist is not
-                                 # independent of the thing being
-                                 # disputed, so it can't be trusted to
-                                 # corroborate or refute a jump in the
-                                 # EKF's own yaw. Raw IMU angular velocity
-                                 # is a physically separate sensor path
-                                 # that SLAM fusion cannot corrupt.
+                                 # The corroboration signal is the EKF's
+                                 # own twist.angular.z (self.yaw_rate), not
+                                 # raw /bluerov2/imu, on the reasoning that
+                                 # rate fusion and orientation fusion are
+                                 # different pathways inside the EKF and so
+                                 # wouldn't share a bug. Briefly switched to
+                                 # raw IMU on 2026-09-04, reasoning that a
+                                 # SLAM-induced EKF discontinuity could
+                                 # corrupt both pathways at once -- reverted
+                                 # 2026-09-05 after live telemetry showed it
+                                 # made things worse, not better: during
+                                 # CLOSE_IN the EKF's own orientation
+                                 # legitimately misbehaves (the persistent
+                                 # 180deg quaternion artifact above,
+                                 # recovering on its own over ~15s) in a way
+                                 # raw IMU integration never corroborates
+                                 # (one disputed window: EKF claimed a
+                                 # 45deg net change, raw IMU integrated
+                                 # -135deg over the same span -- no
+                                 # meaningful relationship between the two).
+                                 # With nothing ever corroborating, every
+                                 # dispute ran the full YAW_GLITCH_HOLD_MAX,
+                                 # force-accepted onto another untrustworthy
+                                 # value, and immediately re-disputed --
+                                 # a freeze/snap/freeze/snap cycle that
+                                 # never converged, producing continuous
+                                 # uncommanded rotation through SCAN that
+                                 # never stopped on its own. The EKF-twist
+                                 # version doesn't have this failure mode
+                                 # for the case it was built for (see
+                                 # YAW_GLITCH_MAX_STEP docstring); the SLAM-
+                                 # discontinuity failure mode this swap was
+                                 # meant to address is real but needs a
+                                 # different fix, not this one.
     YAW_GLITCH_GYRO_MIN_HOLD = 0.3  # s -- ignore gyro corroboration until
                                  # this much integration time has passed,
                                  # so a near-zero integral on the very
@@ -533,13 +557,10 @@ class InspectV8(Node):
                                  self.fused_cb, qos)
         self.create_subscription(Float32, '/deepsight/nav_confidence',
                                  self.conf_cb, qos)
-        self.create_subscription(Imu, '/bluerov2/imu',
-                                 self.imu_cb, qos)
 
         # ── Raw sensor state ────────────────────────────────────
         self.px = self.py = self.pz = self.yaw_ekf = None
         self.yaw_rate = 0.0
-        self.imu_yaw_rate = 0.0
         self._yaw_glitch_since = None
         self._yaw_glitch_gyro_integral = 0.0
         self._yaw_glitch_last_t = None
@@ -608,9 +629,6 @@ class InspectV8(Node):
     # ════════════════════════════════════════════════════════════
     # CALLBACKS
     # ════════════════════════════════════════════════════════════
-    def imu_cb(self, m):
-        self.imu_yaw_rate = m.angular_velocity.z
-
     def odom_cb(self, m):
         self.px = m.pose.pose.position.x
         self.py = m.pose.pose.position.y
@@ -647,7 +665,7 @@ class InspectV8(Node):
             self._yaw_glitch_last_t = now
         else:
             dt = now - self._yaw_glitch_last_t
-            self._yaw_glitch_gyro_integral += self.imu_yaw_rate * dt
+            self._yaw_glitch_gyro_integral += self.yaw_rate * dt
             self._yaw_glitch_last_t = now
 
         held_for = now - self._yaw_glitch_since
