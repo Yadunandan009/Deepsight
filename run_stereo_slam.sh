@@ -29,8 +29,8 @@ docker run -d \
             $PKG/orb_slam3_params/bluerov2_stereo.yaml \
             --ros-args \
             -r __ns:=/bluerov2 \
-            -r left/image_raw:=/bluerov2/left/image_color \
-            -r right/image_raw:=/bluerov2/right/image_color \
+            -r left/image_raw:=/bluerov2/left/image_enhanced \
+            -r right/image_raw:=/bluerov2/right/image_enhanced \
             -p approximate_sync:=true \
             --params-file $PKG/ros_params/euroc-stereo-ros-params.yaml"
 
