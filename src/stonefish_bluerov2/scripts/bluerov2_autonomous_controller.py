@@ -277,6 +277,10 @@ class InspectV8(Node):
     V_SURGE_MAX = 0.50
     V_SCAN_MAX  = 0.30
     V_ORBIT     = 0.35
+    RISE_RETREAT_SPEED = 0.25   # m/s, world-frame, radially outward from
+                             # the turbine -- see _do_rise() docstring for
+                             # why RISE moves during its yaw turn instead
+                             # of holding position.
 
     # CLOSE_IN crab-correction priority: surge, yaw, and sway share the
     # same 4 horizontal thrusters (T_PINV columns 0/1/5), so a strong
@@ -893,6 +897,21 @@ class InspectV8(Node):
         if s == S.SCAN:
             self.scan_going_up = True
             self.scan_cycles_done = 0
+        if s == S.RISE and self.px is not None:
+            # Quantify the handoff gap directly in the log, rather than
+            # inferring it after the fact from a bag -- this is the
+            # number Task 16's root-cause finding turns on (see
+            # _do_rise() docstring): how far apart bearing_hold's target
+            # (facing the turbine) and yaw_hold_world's target (facing
+            # home) actually are at the exact moment of handoff.
+            turbine_psi = math.atan2(self.TY - self.py, self.TX - self.px)
+            home_psi = math.atan2(self.home_y - self.py, self.home_x - self.px)
+            gap_deg = math.degrees(wrap(home_psi - turbine_psi))
+            self.get_logger().info(
+                f"RISE handoff: turbine_psi={math.degrees(turbine_psi):.0f}° "
+                f"home_psi={math.degrees(home_psi):.0f}° "
+                f"gap={gap_deg:.0f}° (this is the yaw swing RISE must "
+                f"execute, by geometry -- not a control-law artifact)")
         if s == S.TRANSIT:
             self.transit_phase = 'rise'
             self.orbit_beta_prev = None
@@ -1307,7 +1326,34 @@ class InspectV8(Node):
         home_psi = math.atan2(self.home_y - self.py,
                               self.home_x - self.px)
         yaw_c = self.yaw_hold_world(home_psi)
-        self._full(0, 0, dep, yaw_c)
+
+        # RISE is the handoff from facing the turbine (bearing_hold,
+        # held throughout DESCEND/TRANSIT) to facing home
+        # (yaw_hold_world) -- since face 0's standoff position sits
+        # roughly on the turbine-home line, those two targets are
+        # typically close to 180deg apart. That's a large, genuine
+        # turn (see YAW_CMD_LP docstring), not a control-law artifact,
+        # and two attempts to dampen it as if it were one (IMU
+        # corroboration, yaw-command slew limiting) made things worse
+        # and were reverted. Previously this turn happened with the
+        # vehicle stationary at full standoff distance from the
+        # structure -- a slow, large-angle in-place rotation next to a
+        # lattice of six visually-identical anode bars, which is
+        # exactly the perceptual-aliasing scenario flagged as the
+        # standing hypothesis for ORB-SLAM3 tracking loss/false loop
+        # closure near mission end. Retreating radially away from the
+        # turbine while the turn happens, instead of after it
+        # completes, puts distance between the camera and the repeated
+        # structure during the maneuver most likely to confuse it.
+        # NOT yet verified live -- needs a mission run to confirm this
+        # actually reduces tracking loss, not just a plausible theory.
+        retreat_psi = self.world_bearing()
+        wx = self.RISE_RETREAT_SPEED * math.cos(retreat_psi)
+        wy = self.RISE_RETREAT_SPEED * math.sin(retreat_psi)
+        vx_sp, vy_sp = self.world_vel_to_body(wx, wy)
+        ux, uy = self.vel_ctrl(vx_sp, vy_sp)
+
+        self._full(ux, uy, dep, yaw_c)
         if abs(self.pz - self.D_RISE) < self.DEPTH_TOL_PHASE:
             self._go(S.RETURN_HOME)
 
