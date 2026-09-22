@@ -177,6 +177,29 @@ def generate_launch_description():
         arguments=['0', '0', '0', '0', '0', '0', 'world', 'odom']
     )
 
+    # 11. Static TF (base_link to imu_filter) -- identity, matching
+    # bluerov2.scn's imu_filter sensor origin (rpy 0 0 0, xyz 0 0 0). Nothing
+    # published this before: Stonefish's ROS2Interface::PublishTF exists but
+    # is never called, and there's no robot_state_publisher/URDF here either.
+    # ekf.yaml's imu0 needs base_link<->bluerov2/imu_filter (the frame_id on
+    # /bluerov2/imu) to resolve, since they're different frame names -- with
+    # no transform published, that lookup fails on every single IMU message,
+    # which makes robot_localization skip fusing it entirely (confirmed by
+    # reading ros_filter.cpp's prepareIMU/preparePose path: the whole fusion
+    # block is gated on a successful lookupTransformSafe). Roll/pitch have no
+    # other correcting sensor in this config, so with imu0 silently never
+    # landing, they've been running open-loop/uncorrected the whole session --
+    # the actual root cause of the pitch drift into +/-90deg gimbal lock this
+    # session chased through two rounds of covariance/process-noise tuning
+    # that could never have worked, since the measurement never reached the
+    # filter in the first place.
+    base_link_to_imu_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_link_to_imu_filter',
+        arguments=['0', '0', '0', '0', '0', '0', 'bluerov2/base_link', 'bluerov2/imu_filter']
+    )
+
     return LaunchDescription([
         scenario_arg,
         quality_arg,
@@ -194,4 +217,5 @@ def generate_launch_description():
         static_tf,
         ned_to_enu_tf,
         world_to_odom_tf,
+        base_link_to_imu_tf,
     ])

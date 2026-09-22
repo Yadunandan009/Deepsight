@@ -277,10 +277,24 @@ class InspectV8(Node):
     V_SURGE_MAX = 0.50
     V_SCAN_MAX  = 0.30
     V_ORBIT     = 0.35
-    RISE_RETREAT_SPEED = 0.25   # m/s, world-frame, radially outward from
+    RISE_RETREAT_SPEED = 0.4    # m/s, world-frame, radially outward from
                              # the turbine -- see _do_rise() docstring for
                              # why RISE moves during its yaw turn instead
-                             # of holding position.
+                             # of holding position. Raised from 0.25
+                             # 2026-09-06 after a live run showed 0.25 only
+                             # bought ~2.5m of separation by the time the
+                             # first SLAM map-point crash hit (t=8s into
+                             # RISE) -- not enough to matter.
+    RISE_YAW_MAX = 0.15          # magnitude cap (not a rate limiter) on
+                             # yaw_hold_world's output during RISE only --
+                             # see yaw_hold_world() docstring for why this
+                             # form is safe where a slew-rate limiter
+                             # wasn't. Added 2026-09-06: the same live run
+                             # showed world_b sweeping >150deg within the
+                             # first 2s of RISE, a whip-pan across the
+                             # turbine's six visually-identical anode bars
+                             # that may itself be a tracking-loss trigger
+                             # independent of standoff distance.
 
     # CLOSE_IN crab-correction priority: surge, yaw, and sway share the
     # same 4 horizontal thrusters (T_PINV columns 0/1/5), so a strong
@@ -538,6 +552,39 @@ class InspectV8(Node):
                                  # first disputed tick doesn't spuriously
                                  # read as "confirmed" by accident.
 
+    YAW_SEED_SETTLE_N = 15  # consecutive /bluerov2/odometry/filtered
+                                 # samples that must agree (within
+                                 # YAW_SEED_SETTLE_TOL) before the first one
+                                 # is trusted as self.yaw_ekf. At 50Hz this
+                                 # is ~0.3s. Previously the guard seeded
+                                 # self.yaw_ekf from whatever message #1
+                                 # happened to be, unconditionally -- but
+                                 # that topic is the EKF's own fused output
+                                 # (odom_cb subscribes to .../filtered, not
+                                 # raw ground truth), and robot_localization
+                                 # starts its internal yaw state at zero,
+                                 # needing a few predict/correct cycles to
+                                 # pull it to the true odom0-measured value
+                                 # even though odom0 supplies absolute yaw
+                                 # from its own first message. If message #1
+                                 # landed before that convergence, the guard
+                                 # locked onto a wrong reference -- and since
+                                 # trystart() only fires once yaw_rate is
+                                 # near zero (vehicle holding still), there
+                                 # is no gyro-confirmable rotation available
+                                 # to ever correct it: this is exactly
+                                 # DESCEND's signature (raw~180 deg away,
+                                 # held frozen, for the full ~40s duration,
+                                 # never resolving until real motion starts
+                                 # in CLOSE_IN). Worse, trystart() also feeds
+                                 # this same self.yaw_ekf into the ONE-TIME
+                                 # yaw_bias.calibrate() call, which never
+                                 # runs again -- a bad seed here poisons the
+                                 # entire mission's heading reference, not
+                                 # just the guard.
+    YAW_SEED_SETTLE_TOL = math.radians(3.0)  # max sample-to-sample spread
+                                 # allowed during the settle window above.
+
     # ════════════════════════════════════════════════════════════
     def __init__(self):
         super().__init__('inspect_v8')
@@ -565,6 +612,7 @@ class InspectV8(Node):
         # ── Raw sensor state ────────────────────────────────────
         self.px = self.py = self.pz = self.yaw_ekf = None
         self.yaw_rate = 0.0
+        self._yaw_seed_buf = []
         self._yaw_glitch_since = None
         self._yaw_glitch_gyro_integral = 0.0
         self._yaw_glitch_last_t = None
@@ -652,8 +700,15 @@ class InspectV8(Node):
         docstrings above for the confirmed glitch this guards against."""
         now = time.time()
         if self.yaw_ekf is None:
-            self.yaw_ekf = raw_yaw
-            self._yaw_glitch_since = None
+            buf = self._yaw_seed_buf
+            if buf and abs(wrap(raw_yaw - buf[-1])) > self.YAW_SEED_SETTLE_TOL:
+                # EKF still converging / jumped mid-settle -- restart the run
+                buf.clear()
+            buf.append(raw_yaw)
+            if len(buf) >= self.YAW_SEED_SETTLE_N:
+                self.yaw_ekf = raw_yaw
+                self._yaw_glitch_since = None
+                self._yaw_seed_buf = None
             return
 
         signed_step = wrap(raw_yaw - self.yaw_ekf)
@@ -823,7 +878,7 @@ class InspectV8(Node):
         self._ix = self._iy = 0.0
         self._vel_i_t = time.time()
 
-    def bearing_hold(self, target=0.0):
+    def bearing_hold(self, target=0.0, max_yaw=0.15):
         """Yaw closed on the WORLD-MODEL bearing (pure geometry +
         one-time-calibrated yaw), not sonar. Smooth by construction —
         this directly replaces the sonar-bearing-driven version that
@@ -834,17 +889,26 @@ class InspectV8(Node):
         else:
             err = wrap(b - target)
             raw = self.KP_BEAR * err - self.KD_BEAR * self.yaw_rate
-            raw = max(-0.30, min(0.30, raw))
+            raw = max(-max_yaw, min(max_yaw, raw))
         self._yaw_cmd += self.YAW_CMD_LP * (raw - self._yaw_cmd)
         return self._yaw_cmd
 
-    def yaw_hold_world(self, psi_target):
-        """World-frame yaw hold with bias-corrected yaw (RISE/RETURN)."""
+    def yaw_hold_world(self, psi_target, max_yaw=0.15):
+        """World-frame yaw hold with bias-corrected yaw (RISE/RETURN).
+
+        max_yaw is a magnitude cap (saturation), not a rate limiter -- it
+        makes no use of history/lag, so it can't reproduce the RISE
+        oscillation caused by the reverted slew-rate limiter (2026-09-05),
+        which added memory to this same loop while it tracks a
+        continuously-recomputed target. A lower ceiling here just makes
+        each instant's command weaker; the P-term still converges
+        monotonically, only slower.
+        """
         if self.yaw_ekf is None:
             return 0.0
         psi = self.yaw_bias.correct(self.yaw_ekf)
         err = wrap(psi_target - psi)
-        raw = max(-0.30, min(0.30, 0.35 * err - self.KD_BEAR * self.yaw_rate))
+        raw = max(-max_yaw, min(max_yaw, 0.35 * err - self.KD_BEAR * self.yaw_rate))
         self._yaw_cmd += self.YAW_CMD_LP * (raw - self._yaw_cmd)
         return self._yaw_cmd
 
@@ -997,7 +1061,7 @@ class InspectV8(Node):
             self._full(0, 0, dep, damp + point)
             return
 
-        yaw_c = self.bearing_hold()
+        yaw_c = self.bearing_hold(max_yaw = 0.15)
         self._full(0, 0, dep, yaw_c)
 
         b = self.current_bearing()
@@ -1012,7 +1076,19 @@ class InspectV8(Node):
     # ────────────────────────────────────────────────────────────
     def _do_close_in(self, now):
         dep   = self.depth_ctrl(self.D_BASE)
-        yaw_c = self.bearing_hold()
+        # Capped 2026-09-17: a live run showed the EKF's known quaternion
+        # glitch firing here TWICE, each time disputed for tens of seconds
+        # before being force-accepted (48deg after 54s, then 124deg after
+        # 12s). Each acceptance drove yaw_rate up sharply (peaked at
+        # 12.8deg/s), which collapses crab_factor to its floor (see
+        # CRAB_YAW_RATE_LIMIT) for 20-40s at a stretch -- v_sp pinned near
+        # 0 the whole time, i.e. CLOSE_IN visibly stalls/idles while
+        # fighting the swing, then eventually times out instead of exiting
+        # cleanly. Same fix as DESCEND/SCAN: a lower max_yaw means a lower
+        # achievable yaw_rate when a glitch lands, so crab_factor doesn't
+        # collapse as hard or as long. Doesn't change the crab formula
+        # itself, just how extreme yaw_rate can get feeding into it.
+        yaw_c = self.bearing_hold(max_yaw=0.15)
         b     = self.current_bearing()
 
         if not self.tracker.healthy(now):
@@ -1107,7 +1183,18 @@ class InspectV8(Node):
              sway  : v_y → 0                (DVL — kills lateral drift)"""
         target_d = self.D_TOP if self.scan_going_up else self.D_BASE
         dep   = self.depth_ctrl(target_d)
-        yaw_c = self.bearing_hold()
+        # Capped 2026-09-17: a live run showed the EKF's known quaternion
+        # glitch firing mid-SCAN (disputed by the yaw-glitch guard for 22s,
+        # then a 69deg jump force-accepted), and that correction driving
+        # this UNCAPPED bearing_hold() into a large swing right as it hit
+        # -- same disproportionate yaw-vs-heave thruster authority (6.8x,
+        # see T_PINV) already confirmed to overshoot in DESCEND. That swing
+        # coincided with a ~96% SLAM map-point crash and the vehicle then
+        # drifting off-station (trk_r climbed from ~16m past 27m and never
+        # came back). Capping here can't prevent the EKF glitch itself,
+        # but keeps a force-accepted correction from producing a violent
+        # physical swing when it lands.
+        yaw_c = self.bearing_hold(max_yaw=0.15)
 
         r = self.tracker.range()
         if r is not None and self.tracker.healthy(now):
@@ -1165,7 +1252,9 @@ class InspectV8(Node):
         # ── rise ────────────────────────────────────────────────
         if self.transit_phase == 'rise':
             dep = self.depth_ctrl(self.D_TRANSIT)
-            yaw_c = self.bearing_hold()
+            # Same cap as DESCEND/CLOSE_IN/SCAN -- see _do_close_in()
+            # comment: the EKF's quaternion glitch can fire in any phase.
+            yaw_c = self.bearing_hold(max_yaw=0.15)
             self._full(0, 0, dep, yaw_c)
             if abs(self.pz - self.D_TRANSIT) < self.DEPTH_TOL_PHASE:
                 beta_now = self.world_bearing()
@@ -1202,7 +1291,12 @@ class InspectV8(Node):
             # hold is exact by construction, not a secondary correction
             # fighting a fast, imperfectly-aligned tangential motion.
             dep   = self.depth_ctrl(self.D_TRANSIT)
-            yaw_c = self.bearing_hold()
+            # Same cap as DESCEND/CLOSE_IN/SCAN -- worth it here
+            # specifically since range hold during orbit is exact-by-
+            # construction off the pointing axis (see docstring above):
+            # an uncapped yaw swing here would show up as a real radial
+            # excursion, not just a heading wobble.
+            yaw_c = self.bearing_hold(max_yaw=0.15)
 
             beta_now = self.world_bearing()
             db = wrap(beta_now - self.orbit_beta_prev)
@@ -1284,7 +1378,8 @@ class InspectV8(Node):
         # ── descend ─────────────────────────────────────────────
         if self.transit_phase == 'descend':
             dep   = self.depth_ctrl(self.D_BASE)
-            yaw_c = self.bearing_hold()
+            # Same cap as DESCEND/CLOSE_IN/SCAN -- see _do_close_in().
+            yaw_c = self.bearing_hold(max_yaw=0.15)
             r = self.tracker.range()
             vx_sp = 0.0
             if r is not None and self.tracker.healthy(now):
@@ -1325,28 +1420,34 @@ class InspectV8(Node):
         dep = self.depth_ctrl(self.D_RISE)
         home_psi = math.atan2(self.home_y - self.py,
                               self.home_x - self.px)
-        yaw_c = self.yaw_hold_world(home_psi)
+        yaw_c = self.yaw_hold_world(home_psi, max_yaw=self.RISE_YAW_MAX)
 
         # RISE is the handoff from facing the turbine (bearing_hold,
         # held throughout DESCEND/TRANSIT) to facing home
         # (yaw_hold_world) -- since face 0's standoff position sits
         # roughly on the turbine-home line, those two targets are
-        # typically close to 180deg apart. That's a large, genuine
-        # turn (see YAW_CMD_LP docstring), not a control-law artifact,
-        # and two attempts to dampen it as if it were one (IMU
-        # corroboration, yaw-command slew limiting) made things worse
-        # and were reverted. Previously this turn happened with the
-        # vehicle stationary at full standoff distance from the
-        # structure -- a slow, large-angle in-place rotation next to a
-        # lattice of six visually-identical anode bars, which is
-        # exactly the perceptual-aliasing scenario flagged as the
-        # standing hypothesis for ORB-SLAM3 tracking loss/false loop
-        # closure near mission end. Retreating radially away from the
-        # turbine while the turn happens, instead of after it
-        # completes, puts distance between the camera and the repeated
-        # structure during the maneuver most likely to confuse it.
-        # NOT yet verified live -- needs a mission run to confirm this
-        # actually reduces tracking loss, not just a plausible theory.
+        # typically close to 180deg apart. Confirmed live 2026-09-06:
+        # logged gap=-159° at the handoff instant. That's a large,
+        # genuine turn (see YAW_CMD_LP docstring), not a control-law
+        # artifact, and two attempts to dampen it as if it were one
+        # (IMU corroboration, yaw-command slew limiting) made things
+        # worse and were reverted.
+        #
+        # First live test of the retreat-only fix (0.25 m/s, full yaw
+        # authority) confirmed the retreat itself works (trk_r climbed
+        # steadily through RISE) and the yaw-glitch guard no longer
+        # misfires on this turn -- but it did NOT prevent two genuine
+        # SLAM map-point crashes (t=8s and t=32s into RISE). The
+        # standing hypothesis was proximity to the lattice's six
+        # visually-identical anode bars during the turn; the same run
+        # showed world_b sweeping >150deg within the first 2s of RISE,
+        # suggesting the whip-pan itself -- not just standoff distance
+        # -- may be a separate trigger. RISE_YAW_MAX addresses that
+        # half; RISE_RETREAT_SPEED was also raised since 0.25 m/s only
+        # bought ~2.5m of separation before the first crash hit.
+        # STILL NOT VERIFIED -- mission still completed either way
+        # (RETURN_HOME doesn't depend on SLAM), so this only affects
+        # map/point-cloud quality, not mission success.
         retreat_psi = self.world_bearing()
         wx = self.RISE_RETREAT_SPEED * math.cos(retreat_psi)
         wy = self.RISE_RETREAT_SPEED * math.sin(retreat_psi)
