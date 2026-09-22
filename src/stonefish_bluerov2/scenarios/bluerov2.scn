@@ -276,7 +276,21 @@
         <sensor name="imu_filter" type="imu" rate="200.0">
             <link name="base_link"/>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
-            <noise angle="0.000001745" angular_velocity="0.00001745"/>
+            <!-- angle/angular_velocity are noise STD DEVs in radians. The
+                 previous values (0.000001745 / 0.00001745 rad, i.e. 0.0001deg
+                 and 0.001deg/s) were off by ~1000x -- an orientation
+                 covariance of ~3e-12 handed to robot_localization's EKF as
+                 measurement noise R is a near-zero-noise claim that made the
+                 15-state Kalman gain computation ill-conditioned. Confirmed
+                 via bag capture: ground truth and this raw IMU topic both
+                 stayed clean while ONLY the EKF's fused pitch state free-
+                 drifted toward +/-90deg over ~9s with nothing in any sensor
+                 driving it there, and each pass through that gimbal-lock
+                 singularity popped the fused roll/yaw by ~180deg -- the
+                 "yaw glitch" chased all session. 0.001745 rad (0.1deg) /
+                 0.01745 rad/s (1deg/s) is realistic MEMS-IMU noise: tight,
+                 but no longer pathological. -->
+            <noise angle="0.001745" angular_velocity="0.01745"/>
             <ros_publisher topic="/bluerov2/imu"/>
         </sensor>
 

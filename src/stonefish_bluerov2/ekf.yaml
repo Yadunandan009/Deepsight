@@ -49,11 +49,22 @@ ekf_filter_node:
 
     # ----------------------------------------------------------------
     # SENSOR 3: IMU
-    # Roll, Pitch, angular velocities
-    # ----------------------------------------------------------------
+    # Roll, Pitch, angular velocities -- Yaw disabled 2026-09-17.
+    # Comment above already said "Roll, Pitch, angular velocities" (no
+    # yaw) but the config below still had Yaw=true, fusing it as a
+    # second absolute yaw source alongside odom0. Stonefish's IMU
+    # publisher reconstructs its quaternion from Euler angles
+    # (ROS2Interface.cpp PublishIMU: quat(yaw,pitch,roll) from raw rpy)
+    # instead of copying the rigid body's orientation directly, unlike
+    # PublishOdometry which copies it as-is -- a live run (with SLAM
+    # disabled, ruling that out) showed persistent ~180deg disputed
+    # jumps in the fused yaw with no controller/SLAM cause, consistent
+    # with these two absolute yaw sources occasionally disagreeing.
+    # odom0 is already the documented "PRIMARY ANCHOR" for yaw; no
+    # reason to fuse a second, independently-reconstructed one.
     imu0: /bluerov2/imu
     imu0_config: [false, false, false,
-                  true,  true,  true,   # Roll, Pitch, Yaw
+                  true,  true,  false,  # Roll, Pitch (Yaw: see above)
                   false, false, false,
                   true,  true,  true,   # Angular velocities
                   false, false, false]
@@ -72,3 +83,38 @@ ekf_filter_node:
                     false, false, false,
                     false, false, false]
     twist0_differential: false
+
+    # ----------------------------------------------------------------
+    # Process noise covariance -- tightened for roll/pitch and their
+    # rates only; every other entry is robot_localization's own stock
+    # default (order: x,y,z, roll,pitch,yaw, vx,vy,vz, vroll,vpitch,vyaw,
+    # ax,ay,az). Confirmed via bag capture 2026-09-21: even with the
+    # imu_filter noise fix in bluerov2.scn (2026-09-17) making imu0's
+    # measurement covariance realistic, the fused pitch state still
+    # occasionally free-drifts to +/-90deg (gimbal lock in this filter's
+    # Euler-angle state) while ground truth and the raw imu0 measurement
+    # both stay under 3deg pitch the whole time -- twice in one run,
+    # each time popping roll/yaw by 180deg as a mathematical side effect
+    # once pitch crosses the singularity. The measurement-noise fix
+    # controls how strongly a correction pulls the state toward truth;
+    # it does nothing to limit how far the state can wander from truth
+    # *between* corrections, which is process_noise_covariance's job --
+    # a 10x tighter roll/pitch/vroll/vpitch here forces the filter to
+    # trust its own smooth prediction more, directly bounding that
+    # between-correction drift instead of just gating symptoms after
+    # the fact.
+    process_noise_covariance: [0.05,  0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.05,  0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.06,  0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.003,  0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.003,  0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.06, 0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.025, 0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.025, 0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.04, 0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.001,  0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.001,  0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.02, 0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.01, 0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.01, 0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.015]
