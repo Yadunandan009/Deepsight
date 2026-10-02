@@ -1,0 +1,7 @@
+{"trial": "fixed_00", "success": true, "outcome": "complete", "duration_s": 1090.9359953403473, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_00", "buggy_alloc": false}
+{"trial": "fixed_02", "success": true, "outcome": "complete", "duration_s": 1087.3877346515656, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_02", "buggy_alloc": false}
+{"trial": "fixed_03", "success": true, "outcome": "complete", "duration_s": 1087.9919745922089, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_03", "buggy_alloc": false}
+{"trial": "fixed_04", "success": true, "outcome": "complete", "duration_s": 1087.182401418686, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_04", "buggy_alloc": false}
+{"trial": "fixed_05", "success": true, "outcome": "complete", "duration_s": 1087.7703754901886, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_05", "buggy_alloc": false}
+{"trial": "fixed_06", "success": true, "outcome": "complete", "duration_s": 1086.9623365402222, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_06", "buggy_alloc": false}
+{"trial": "fixed_07", "success": true, "outcome": "complete", "duration_s": 1087.8624885082245, "bag_path": "/home/yadunandan/ros2_ws/eval/bags/fixed_07", "buggy_alloc": false}
