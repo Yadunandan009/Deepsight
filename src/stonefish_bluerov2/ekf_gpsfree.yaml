@@ -1,0 +1,156 @@
+### GPS-FREE EKF probe configuration — BlueROV2 (ROS 2 Jazzy)
+###
+### PURPOSE: answer one question cheaply, before committing a week to the
+### anchor-free rework — does heading hold up without the ground-truth
+### anchor, or does yaw spiral within the first couple of minutes?
+###
+### This is a FORK of ekf.yaml. It does not replace it, and the node using
+### it runs ALONGSIDE the normal ekf_filter_node as a passive observer:
+### the vehicle still flies on the ground-truth-anchored estimate, so the
+### mission completes normally and we get a full trajectory to compare
+### against. Nothing about the live stack changes.
+###
+### THE ONE REAL DIFFERENCE vs ekf.yaml:
+###   odom0 (/bluerov2/odometry) is GONE. That topic is a Stonefish
+###   type="odometry" sensor with no noise block -- i.e. ground truth,
+###   supplying X, Y, Z AND yaw as a non-differential absolute reference
+###   at 100Hz. It is what makes the current stack not actually a
+###   navigation system. Everything below is the sensor suite that
+###   remains: SLAM for absolute XY, pressure for Z, DVL for velocity,
+###   IMU for attitude.
+###
+### Two consequent changes, both forced by odom0's removal:
+###   - pose1 (depth) RE-ENABLED. It is commented out in ekf.yaml on the
+###     grounds that "raw odometry Z is more reliable" -- true, but raw
+###     odometry Z is the ground truth we are removing. depth_bridge.py
+###     already runs in bluerov2_sim.py and already publishes this topic;
+###     it scales pressure to the odometry Z convention (434 Pa ~ 10m), so
+###     the "~10m absolute offset" in ekf.yaml's comment may already be
+###     stale. If Z is badly biased in the probe output, that comment is
+###     the first place to look.
+###   - imu0 yaw RE-ENABLED. It was disabled 2026-09-17 because it was a
+###     SECOND absolute yaw source fighting odom0's yaw, producing ~180deg
+###     disputes. With odom0 gone that conflict is gone by construction,
+###     and IMU yaw becomes the ONLY heading source -- which is precisely
+###     the risk this probe exists to measure.
+###
+### publish_tf is false: a second robot_localization instance publishing
+### the same world_ned->base_link edge would fight the primary one. This
+### node estimates only; it owns no transforms.
+
+ekf_filter_node_gpsfree:
+  ros__parameters:
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: false
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: true
+    debug: false
+
+    # Must not publish TF -- see header.
+    publish_tf: false
+
+    map_frame: map
+    odom_frame: world_ned
+    base_link_frame: bluerov2/base_link
+    world_frame: world_ned
+
+    # ----------------------------------------------------------------
+    # SENSOR 0: (REMOVED) /bluerov2/odometry -- the ground-truth anchor.
+    # Its absence is the entire point of this file.
+    # ----------------------------------------------------------------
+
+    # ----------------------------------------------------------------
+    # SENSOR 1: ORB-SLAM3 via a DEDICATED slam_pose_bridge instance --
+    # now the ONLY absolute XY source. Yaw stays disabled: the bridge only
+    # corrects x/y and passes ORB-SLAM3's raw, uncorrected orientation
+    # through, so its yaw is not trustworthy as an absolute reference.
+    #
+    # CONFOUND RESOLVED 2026-10-02. This previously consumed
+    # /bluerov2/robot_pose_slam_ekf, published by the default bridge, which
+    # fits its SLAM->world alignment against the PRIMARY (ground-truth-
+    # anchored) EKF -- making the "GPS-free" XY indirectly GT-informed, and
+    # the probe's XY numbers a lower bound rather than a result. The bridge
+    # now takes reference_odom/output_topic as parameters, so a second
+    # instance can align against THIS estimator instead and publish here.
+    # Launch it with:
+    #
+    #   ros2 run stonefish_bluerov2 slam_pose_bridge.py --ros-args \
+    #     -r __node:=slam_pose_bridge_gpsfree \
+    #     -p reference_odom:=/bluerov2/odometry/filtered_gpsfree \
+    #     -p output_topic:=/bluerov2/robot_pose_slam_ekf_gpsfree
+    #
+    # That closes a feedback loop (SLAM -> bridge -> this EKF -> bridge)
+    # with no external truth anywhere in it. That is what GPS-free actually
+    # means, and it is also why the first runs need watching rather than
+    # batching: the bridge's rejection and re-align thresholds were tuned
+    # against a ground-truth-anchored reference and may not hold here.
+    # ----------------------------------------------------------------
+    pose0: /bluerov2/robot_pose_slam_ekf_gpsfree
+    pose0_config: [true,  true,  false,  # X, Y only
+                   false, false, false,  # no orientation from SLAM
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose0_differential: false
+    pose0_relative: false
+
+    # ----------------------------------------------------------------
+    # SENSOR 2: Depth (pressure) -- RE-ENABLED, now the only Z source.
+    # depth_bridge.py publishes this already; covariance[14]=0.5.
+    # ----------------------------------------------------------------
+    pose1: /bluerov2/depth_pose
+    pose1_config: [false, false, true,   # Z only
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose1_differential: false
+    pose1_relative: false
+
+    # ----------------------------------------------------------------
+    # SENSOR 3: IMU -- roll, pitch, AND yaw (yaw re-enabled, see header).
+    # Sole heading source. If this drifts unbounded, the anchor-free
+    # rework is a much bigger job than a config change.
+    # ----------------------------------------------------------------
+    imu0: /bluerov2/imu
+    imu0_config: [false, false, false,
+                  true,  true,  true,   # Roll, Pitch, Yaw
+                  false, false, false,
+                  true,  true,  true,   # Angular velocities
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # ----------------------------------------------------------------
+    # SENSOR 4: DVL -- body-frame velocity. Carries dead reckoning
+    # whenever SLAM drops out, which per TASK_15 it does.
+    # ----------------------------------------------------------------
+    twist0: /bluerov2/dvl_twist
+    twist0_config: [false, false, false,
+                    false, false, false,
+                    true,  true,  true,  # vx, vy, vz
+                    false, false, false,
+                    false, false, false]
+    twist0_differential: false
+
+    # Carried over verbatim from ekf.yaml (tightened roll/pitch/vroll/
+    # vpitch 10x vs stock) so the probe differs from the live filter in
+    # sensor inputs ONLY, not in tuning.
+    process_noise_covariance: [0.05,  0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.05,  0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.06,  0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.003,  0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.003,  0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.06, 0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.025, 0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.025, 0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.04, 0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.001,  0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.001,  0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.02, 0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.01, 0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.01, 0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.015]

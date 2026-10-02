@@ -203,22 +203,52 @@ class SlamPoseBridge(Node):
         self.MAX_CONSECUTIVE_REJECTS = 40
         self.reject_streak = 0
 
+        # Both topics are parameters so a SECOND instance can serve the
+        # GPS-free estimator chain alongside the normal one, rather than
+        # this file having to be edited back and forth between experiments.
+        # Defaults reproduce the original hardcoded behaviour exactly.
+        #
+        # WHY THIS IS PARAMETERISED (2026-10-02): the alignment is fitted
+        # against reference_odom, and the default reference is the primary
+        # EKF -- which is anchored on /bluerov2/odometry, i.e. Stonefish
+        # ground truth. Every pose this bridge publishes is therefore
+        # indirectly ground-truth-informed, which is the confound that made
+        # the GPS-free probe's XY numbers a lower bound rather than a real
+        # result (see eval/gpsfree_probe.py and docs/PAPER_EXECUTION_PLAN.md
+        # WS-0). Pointing reference_odom at the anchor-free estimate removes
+        # it.
+        #
+        # NOTE THE FEEDBACK LOOP that creates: the GPS-free EKF consumes
+        # this bridge's output as pose0, so aligning against that same EKF
+        # closes the loop SLAM -> bridge -> EKF -> bridge. That is the
+        # correct architecture for genuine SLAM-based navigation (filter and
+        # alignment co-evolve, with no external truth to lean on), but it can
+        # diverge in ways the open-loop version cannot. Expect to need the
+        # rejection/re-align thresholds retuned, and watch the first runs
+        # rather than batching them.
+        self.declare_parameter('reference_odom', '/bluerov2/odometry/filtered')
+        self.declare_parameter('output_topic', '/bluerov2/robot_pose_slam_ekf')
+        reference_odom = self.get_parameter('reference_odom').value
+        output_topic = self.get_parameter('output_topic').value
+
         self.pub = self.create_publisher(
             PoseWithCovarianceStamped,
-            '/bluerov2/robot_pose_slam_ekf', 10)
+            output_topic, 10)
         self.create_subscription(
             PoseStamped,
             '/bluerov2/robot_pose_slam',
             self.slam_cb, 10)
         self.create_subscription(
             Odometry,
-            '/bluerov2/odometry/filtered',
+            reference_odom,
             self.ekf_cb, 10)
         self.create_subscription(
             PointCloud2,
             '/bluerov2/map_points',
             self.map_cb, 10)
-        self.get_logger().info('SLAM pose bridge started')
+        self.get_logger().info(
+            f'SLAM pose bridge started (reference_odom={reference_odom}, '
+            f'output={output_topic})')
 
     def ekf_cb(self, m):
         self.ekf_x = m.pose.pose.position.x
