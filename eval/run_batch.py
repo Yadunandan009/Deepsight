@@ -15,6 +15,9 @@ p.add_argument("--bag-root", default=os.path.expanduser("~/ros2_ws/eval/bags"))
 p.add_argument("--timeout", type=int, default=1800)
 p.add_argument("--scenario", default="bluerov2_turbine")
 p.add_argument("--log", default=os.path.expanduser("~/ros2_ws/eval/results.jsonl"))
+p.add_argument("--buggy-alloc", action="store_true",
+                help="Use the pre-fix (surge-column sign error) thruster "
+                     "allocation matrix -- Task 9's ablation counterfactual.")
 args = p.parse_args()
 
 os.makedirs(args.bag_root, exist_ok=True)
@@ -22,7 +25,7 @@ os.makedirs(args.bag_root, exist_ok=True)
 for i in range(args.n):
     name = f"{args.prefix}_{i:02d}"
     print(f"=== starting {name} ({i+1}/{args.n}) ===", flush=True)
-    result = run_trial(name, args.bag_root, args.timeout, args.scenario)
+    result = run_trial(name, args.bag_root, args.timeout, args.scenario, args.buggy_alloc)
     with open(args.log, "a") as f:
         f.write(json.dumps(result) + "\n")
     print(f"=== {name} done: {result['outcome']} ({result['duration_s']:.0f}s) ===", flush=True)

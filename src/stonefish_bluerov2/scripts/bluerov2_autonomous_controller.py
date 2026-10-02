@@ -434,22 +434,40 @@ class InspectV8(Node):
     SCAN_FULL_CYCLES = 1
 
     # ── Thruster T-matrix pseudoinverse (unchanged, proven) ─────
-    T_PINV = np.array([
-        # Surge column (index 0) sign-corrected -- was producing
-        # backward motion under a positive command. Confirmed from
-        # telemetry: CLOSE_IN commanded ux=1.00 forward continuously,
-        # yet trk_r grew monotonically for the entire run (never once
-        # decreased) while vx_b stayed negative throughout, with
-        # heading locked correctly at 0 deg the whole time.
-        [-0.353557, +0.353557, +0.000000, 0.0, 0.0, +1.700680],
-        [-0.353557, -0.353557, +0.000000, 0.0, 0.0, -1.700680],
-        [+0.353557, +0.353557, +0.000000, 0.0, 0.0, -1.700680],
-        [+0.353557, -0.353557, +0.000000, 0.0, 0.0, +1.700680],
-        [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
-        [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
-        [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
-        [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
-    ])
+    # BLUEROV2_BUGGY_ALLOC=1 selects the pre-fix matrix instead (Task 9's
+    # ablation counterfactual: same code path as the fixed-matrix trials
+    # (Task 8), differing only in this one matrix, for a clean
+    # fixed-vs-buggy comparison). Buggy version restored verbatim from
+    # bluerov2_autonomous_controller.py.bak.20260731_022303, the last
+    # backup taken before the surge-column fix landed the same day.
+    if os.environ.get('BLUEROV2_BUGGY_ALLOC') == '1':
+        T_PINV = np.array([
+            [+0.353557, +0.353557, +0.000000, 0.0, 0.0, +1.700680],
+            [+0.353557, -0.353557, +0.000000, 0.0, 0.0, -1.700680],
+            [-0.353557, +0.353557, +0.000000, 0.0, 0.0, -1.700680],
+            [-0.353557, -0.353557, +0.000000, 0.0, 0.0, +1.700680],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+        ])
+    else:
+        T_PINV = np.array([
+            # Surge column (index 0) sign-corrected -- was producing
+            # backward motion under a positive command. Confirmed from
+            # telemetry: CLOSE_IN commanded ux=1.00 forward continuously,
+            # yet trk_r grew monotonically for the entire run (never once
+            # decreased) while vx_b stayed negative throughout, with
+            # heading locked correctly at 0 deg the whole time.
+            [-0.353557, +0.353557, +0.000000, 0.0, 0.0, +1.700680],
+            [-0.353557, -0.353557, +0.000000, 0.0, 0.0, -1.700680],
+            [+0.353557, +0.353557, +0.000000, 0.0, 0.0, -1.700680],
+            [+0.353557, -0.353557, +0.000000, 0.0, 0.0, +1.700680],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+            [+0.000000, +0.000000, +0.250000, 0.0, 0.0, +0.000000],
+        ])
     WRENCH_SCALE = 2.0
 
     # ── Yaw glitch guard ────────────────────────────────────────

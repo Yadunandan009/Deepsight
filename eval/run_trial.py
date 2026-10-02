@@ -34,12 +34,22 @@ ROS_SETUP = (
 BAG_TOPICS = "/bluerov2/odometry /bluerov2/robot_pose_slam_ekf /bluerov2/setpoint/pwm"
 
 
-def start(cmd):
+def start(cmd, extra_env=None):
+    # extra_env goes through Popen's own env= rather than shell string
+    # concatenation -- confirmed 2026-09-24 that "exec VAR=val cmd" fails
+    # ("exec: VAR=val: not found"): a bash assignment prefix only attaches
+    # to the command word that immediately follows it, and "exec" IS that
+    # command word here, so "VAR=val" was being handed to exec as the
+    # literal program name instead of becoming part of cmd's environment.
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     return subprocess.Popen(
         f"{ROS_SETUP} && exec {cmd}",
         shell=True, executable="/bin/bash",
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         preexec_fn=os.setsid,
+        env=env,
     )
 
 
@@ -60,11 +70,25 @@ def stop(proc, name):
         pass
 
 
-def run_trial(trial_name, bag_root, timeout_s=1800, scenario="bluerov2_turbine"):
+def run_trial(trial_name, bag_root, timeout_s=1800, scenario="bluerov2_turbine",
+              buggy_alloc=False):
     bag_path = os.path.join(bag_root, trial_name)
+    if os.path.exists(bag_path):
+        # ros2 bag record refuses to start if the output dir already exists,
+        # but its subprocess failing doesn't stop the sim/controller from
+        # running to completion -- which previously produced a trial logged
+        # as "success" with a stale or entirely missing bag underneath it
+        # (confirmed 2026-09-23: a re-run of fixed_00/fixed_01 collided with
+        # bags left from an earlier interrupted batch). Fail before wasting
+        # a full mission's wall-clock time on a trial whose telemetry can
+        # never be recorded.
+        raise FileExistsError(
+            f"bag directory already exists: {bag_path} -- remove it or "
+            f"choose a different --prefix/trial name before rerunning")
+
     sim_proc = bag_proc = ctrl_proc = None
     result = {"trial": trial_name, "success": False, "outcome": "unknown",
-              "duration_s": None, "bag_path": bag_path}
+              "duration_s": None, "bag_path": bag_path, "buggy_alloc": buggy_alloc}
 
     try:
         sim_proc = start(
@@ -79,26 +103,37 @@ def run_trial(trial_name, bag_root, timeout_s=1800, scenario="bluerov2_turbine")
         bag_proc = start(f"ros2 bag record {BAG_TOPICS} -o '{bag_path}'")
         time.sleep(3)
 
-        ctrl_proc = start("ros2 run stonefish_bluerov2 bluerov2_autonomous_controller.py")
+        ctrl_extra_env = {"BLUEROV2_BUGGY_ALLOC": "1"} if buggy_alloc else None
+        ctrl_proc = start("ros2 run stonefish_bluerov2 bluerov2_autonomous_controller.py",
+                           extra_env=ctrl_extra_env)
 
-        start_t = time.time()
-        outcome = "timeout"
-        while True:
-            line = ctrl_proc.stdout.readline()
-            if not line:
-                if ctrl_proc.poll() is not None:
-                    outcome = "controller_crashed"
+        # Every line is echoed to a per-trial log -- previously only checked
+        # against two magic strings and otherwise discarded, so a fast crash
+        # (confirmed 2026-09-24: all 10 buggy_alloc trials died in <0.4s)
+        # left literally no record of why.
+        ctrl_log_path = bag_path + "_ctrl_stdout.log"
+        with open(ctrl_log_path, "w") as ctrl_log:
+            start_t = time.time()
+            outcome = "timeout"
+            while True:
+                line = ctrl_proc.stdout.readline()
+                if not line:
+                    if ctrl_proc.poll() is not None:
+                        outcome = "controller_crashed"
+                        break
+                    continue
+                ctrl_log.write(line)
+                ctrl_log.flush()
+                if "MISSION COMPLETE" in line:
+                    outcome = "complete"
                     break
-                continue
-            if "MISSION COMPLETE" in line:
-                outcome = "complete"
-                break
-            if re.search(r"\bESTOP\b", line):
-                outcome = "estop"
-                break
-            if time.time() - start_t > timeout_s:
-                outcome = "timeout"
-                break
+                if re.search(r"\bESTOP\b", line):
+                    outcome = "estop"
+                    break
+                if time.time() - start_t > timeout_s:
+                    outcome = "timeout"
+                    break
+        result["ctrl_log_path"] = ctrl_log_path
 
         result["duration_s"] = time.time() - start_t
         result["outcome"] = outcome
@@ -119,8 +154,12 @@ if __name__ == "__main__":
     p.add_argument("--bag-root", default=os.path.expanduser("~/ros2_ws/eval/bags"))
     p.add_argument("--timeout", type=int, default=1800)
     p.add_argument("--scenario", default="bluerov2_turbine")
+    p.add_argument("--buggy-alloc", action="store_true",
+                    help="Use the pre-fix (surge-column sign error) thruster "
+                         "allocation matrix -- Task 9's ablation counterfactual.")
     args = p.parse_args()
     os.makedirs(args.bag_root, exist_ok=True)
 
-    res = run_trial(args.trial_name, args.bag_root, args.timeout, args.scenario)
+    res = run_trial(args.trial_name, args.bag_root, args.timeout, args.scenario,
+                     args.buggy_alloc)
     print(json.dumps(res))
