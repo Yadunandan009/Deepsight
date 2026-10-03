@@ -106,6 +106,11 @@ ANODE_MESH, ANODE_LOOK = 'anodes/anode.obj', 'anode_bar'
 # enough to read as mounted, clear enough not to intersect it.
 ATTACH_RADIUS_M = 10.2
 
+# Riser run: from just above the seabed up through the sea surface to
+# topside, which is what a riser actually does.
+RISER_BOTTOM_M, RISER_TOP_M = 23.0, -4.0
+HORIZONTAL_RUN_DEPTHS_M = [9.0, 16.0]
+
 
 def mesh_z_extent(mesh_rel, scale):
     """Vertical extent of a scaled mesh, for the submersion check."""
@@ -114,13 +119,15 @@ def mesh_z_extent(mesh_rel, scale):
     return min(zs) * scale, max(zs) * scale
 
 
-def assert_submerged(mesh_rel, scale, depth):
+def assert_submerged(mesh_rel, scale, depth, allow_breach=False):
     """Refuse to place anything that would break the surface.
 
     The first ladder put a 22.5 m pipe at 6 m depth and pushed it 5.3 m into
     the air. Nothing catches that except an explicit check, because the
     scenario loads and the simulator renders it quite happily.
     """
+    if allow_breach:
+        return      # risers are meant to reach topside
     zmin, _ = mesh_z_extent(mesh_rel, scale)
     top = depth + zmin
     if top < SURFACE_CLEARANCE_M:
@@ -141,22 +148,35 @@ def hardware_blocks(face_idx, anode_scale, n_anodes):
     y = TURBINE_Y + ATTACH_RADIUS_M * math.sin(b)
     out = []
 
-    # J-tube / riser: one vertical run up the face, mid-water so it clears
-    # the surface. Scale 2 gives a 7.5 m section, an ordinary tubular.
-    # Centred at 11 m: the bracing has a gap between 14 and 18 m (measured),
-    # so a riser centred at 14 would hang in open water over its upper half.
-    assert_submerged(PIPE_MESH, 2.0, 11.0)
-    out.append(f"""
-	<static name="FaceHardware{face_idx}_pipe" type="model">
-		<physical>
-			<mesh filename="{PIPE_MESH}" scale="2.0"/>
-			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
-		</physical>
-		<material name="Aluminium"/>
-		<look name="{PIPE_LOOK}"/>
-		<world_transform rpy="0.0 0.0 {b:.4f}" xyz="{x:.3f} {y:.3f} 11.000"/>
-	</static>
+    # J-tube / riser. Built from contiguous segments rather than one
+    # oversized stub: uniform mesh scaling would fatten the diameter along
+    # with the length, and at scale 2 the single 7.5 m section rendered as a
+    # stray pipe floating in a bay. At scale 1 the mesh is 0.37 m across --
+    # an ordinary J-tube -- and butting segments end to end gives a run of
+    # any length at the right diameter.
+    #
+    # The run deliberately breaks the sea surface: a riser carries product
+    # from the seabed to topside, so stopping it underwater would be the
+    # unrealistic choice. This is the one case where the submersion check is
+    # waived, by exception rather than by loosening the rule.
+    seg_h = mesh_z_extent(PIPE_MESH, 1.0)[1] - mesh_z_extent(PIPE_MESH, 1.0)[0]
+    depth_cursor = RISER_BOTTOM_M
+    seg = 0
+    while depth_cursor > RISER_TOP_M:
+        assert_submerged(PIPE_MESH, 1.0, depth_cursor, allow_breach=True)
+        out.append(f"""
+\t<static name="FaceHardware{face_idx}_riser{seg}" type="model">
+\t\t<physical>
+\t\t\t<mesh filename="{PIPE_MESH}" scale="1.0"/>
+\t\t\t<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+\t\t</physical>
+\t\t<material name="Aluminium"/>
+\t\t<look name="{PIPE_LOOK}"/>
+\t\t<world_transform rpy="0.0 0.0 {b:.4f}" xyz="{x:.3f} {y:.3f} {depth_cursor:.3f}"/>
+\t</static>
 """)
+        depth_cursor -= seg_h
+        seg += 1
 
     # Sacrificial anodes, same orientation as the six already in the stock
     # scenario (pitched 90 deg so they lie along the member).
@@ -177,12 +197,53 @@ def hardware_blocks(face_idx, anode_scale, n_anodes):
     return ''.join(out)
 
 
+def connecting_runs(anode_scale):
+    """Continuous horizontal pipeline joining the risers on the two marked
+    faces, routed around the structure rather than stubbing out into open
+    water.
+
+    The first version hung two short tangential segments off each riser.
+    Rendered, they read as pipes pointing at nothing -- the run has to go
+    somewhere. Faces 0 and 1 are 90 deg apart, so the pipeline follows that
+    arc at ATTACH_RADIUS_M, passing the leg between them, with segments
+    overlapping slightly so the run is visually unbroken.
+    """
+    import math
+    if anode_scale <= 0:
+        return ''
+    b0 = math.radians(FACE_BEARINGS[MARKED_FACES[0]])
+    b1 = math.radians(FACE_BEARINGS[MARKED_FACES[1]])
+    sweep = (b1 - b0 + math.pi) % (2 * math.pi) - math.pi      # short way round
+    seg_len = mesh_z_extent(PIPE_MESH, 1.0)[1] - mesh_z_extent(PIPE_MESH, 1.0)[0]
+    arc_len = abs(sweep) * ATTACH_RADIUS_M
+    n = max(1, int(math.ceil(arc_len / (seg_len * 0.85))))      # 15% overlap
+    out = []
+    for j, hd in enumerate(HORIZONTAL_RUN_DEPTHS_M):
+        for i in range(n):
+            th = b0 + sweep * (i + 0.5) / n
+            hx = TURBINE_X + ATTACH_RADIUS_M * math.cos(th)
+            hy = TURBINE_Y + ATTACH_RADIUS_M * math.sin(th)
+            out.append(f"""
+\t<static name="Pipeline_run{j}_seg{i}" type="model">
+\t\t<physical>
+\t\t\t<mesh filename="{PIPE_MESH}" scale="1.0"/>
+\t\t\t<origin rpy="0.0 1.571 0.0" xyz="0.0 0.0 0.0"/>
+\t\t</physical>
+\t\t<material name="Aluminium"/>
+\t\t<look name="{PIPE_LOOK}"/>
+\t\t<world_transform rpy="0.0 0.0 {th + math.pi/2:.4f}" xyz="{hx:.3f} {hy:.3f} {hd:.3f}"/>
+\t</static>
+""")
+    return ''.join(out)
+
+
 def build_variant(anode_scale, n_anodes, out_path):
     src = open(STOCK).read()
     if anode_scale <= 0 or n_anodes <= 0:
         body = ''
     else:
         body = ''.join(hardware_blocks(f, anode_scale, n_anodes) for f in MARKED_FACES)
+        body += connecting_runs(anode_scale)
 
     comment_body = (f' Symmetry variant: faces {MARKED_FACES} carry a riser plus '
                     f'{n_anodes} anodes at scale {anode_scale}.\n'
