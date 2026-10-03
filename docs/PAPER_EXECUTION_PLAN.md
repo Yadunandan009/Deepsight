@@ -21,75 +21,77 @@ Checked against disk on 2026-10-01, not assumed from prior notes.
 | Task #15 — SLAM map fragmentation | **Root-caused + written up**; fix not implemented | `docs/TASK_15_SLAM_MAP_FRAGMENTATION_WRITEUP.md` |
 | Task #16 — EKF yaw instability | **Fixed + bag-verified** | missing `base_link`↔`imu_filter` TF; `bluerov2_sim.py` |
 | Literature base | Exists, ~40 refs, unverified | `~/Desktop/RESEARCH_DIRECTIONS_HANDOFF.md` §351-505 — **not in repo** |
-| v7 baseline controller | Delivered 2026-10-01, **forked from a stale base — needs rework** | `~/Desktop/bluerov2_autonomous_controller_v7baseline.py`; see WS-B1 |
-| `eval/bearing_stability_metrics.py` | Delivered, **metric bug found and fixed**, now in repo | `eval/bearing_stability_metrics.py`; see WS-B2 |
+| Structure symmetry index | **Done**, validated against sonar to ~1 cm | `eval/structure_symmetry.py` |
+| Symmetry variant ladder | **Done**, 5 levels, index 1.000 → 0.717 | `eval/make_variants.py`, `eval/symmetry_ladder.csv` |
+| Symmetry failure axis | **Not measured** — probe pending | — |
+| GPS-free heading probe | **Passed** 2026-10-02: yaw 0.08° mean, no growth | `eval/gpsfree_probe.py` |
+| Depth conversion | **Fixed and verified**, 0.738 m → 0.013 m error | `depth_bridge.py`, `eval/verify_depth.py` |
+| v7 baseline / bearing metrics | **Dropped** with the v7-vs-v8 comparison (§1.2); files remain on disk, unused | `eval/bearing_stability_metrics.py` |
 | MPC / Fossen / IMM / Mahalanobis prototypes | Exist on Desktop, stale, never executed | forked pre-TF-fix; see §6 |
 
-**Both Phase 1 files arrived on 2026-10-01**, after this plan's first draft. Neither is ready to run as delivered — one has a metric-validity bug (fixed, §WS-B2), the other was forked from a pre-2026-09-22 base and would confound the comparison (§WS-B1). WS-B is unblocked but is still the critical path.
+**The contribution changed on 2026-10-03** (§1, §1.2). The v7-vs-v8 comparison and the
+ablation battery are dropped; the symmetry dose-response is now the main result, with
+GPS-denied operation as its setting. WS-B below is that dose-response, not the old
+Phase 1 work.
 
 ---
 
 ## 1. The contribution — what this paper actually argues
 
-The protocol proposes v7-vs-v8 bearing stability as "the paper's hook." **I'd recommend against making that the primary claim**, for one reason: the v7 baseline is a reconstruction of code that no longer exists, so the headline result would be "our method beats a baseline we rebuilt ourselves." That is a straw-man vulnerability a reviewer will go straight for, and it's load-bearing if it's the hook.
+**Decided 2026-10-03.** The arc is:
 
-The project already holds two *independently verified* results that don't have that weakness, both derived from sonar geometry that owes nothing to the controller being evaluated:
+> **GPS-denied operation is the setting** that makes SLAM load-bearing. **Structural
+> self-similarity is the finding**: jacket faces are geometrically interchangeable, and
+> place-recognition failure scales with how interchangeable they are. **A cross-modal
+> gate is the method half**, if time allows — and a negative result there is still a
+> result.
 
-- **Structural self-similarity (Task #15)** — the turbine's four faces register against each other at fitness 0.996-1.000, RMSE 0.08-0.10 m, barely above the self-match floor. This is a measured property of the inspection target, established without reference to ORB-SLAM3's output at all. It explains *why* appearance-based place recognition is structurally unreliable on jacket geometry — not as an opinion, as a number.
-- **False loop closure, geometrically verified (Task A)** — ICP against an independent sonar reference shows face 2's map points have no preference for their own true geometry over face 1's.
+Without the GPS-denied setting a reviewer asks why ORB-SLAM3 is in the paper at all,
+because with the ground-truth anchor in place SLAM drives nothing. Without the
+dose-response the symmetry work is a single observation on a single structure, which is
+a problem statement, not a finding.
 
-**Recommended framing:** *lattice/jacket geometry breaks the assumptions that both appearance-based SLAM and sonar-centroid bearing extraction rely on; here is the measured evidence for why, and a geometry-anchored control stack whose design decisions are each individually quantified.*
-
-That gives four results legs instead of one, and the two strongest legs don't depend on a reconstructed baseline:
-
-| # | Result | Source | Strength |
-|---|---|---|---|
-| R1 | Four faces are geometrically near-indistinguishable → vision-only place recognition is structurally at risk here | Task #15, done | **Strongest** — independent reference geometry, nothing to straw-man |
-| R2 | A suspected false loop closure, confirmed geometrically | Task A, done | Strong — same independence property |
-| R3 | Design decisions under genuine uncertainty measurably contribute (ablation battery) | WS-C, to run | Moderate — see the tautology caveat below |
-| R4 | Pure-geometry bearing is more stable than sonar-centroid bearing on a lattice | WS-B, to build+run | Useful, but disclose the reconstruction |
-
-R4 moves from "the hook" to "one result among four," which makes the reconstruction caveat survivable rather than fatal.
+| # | Result | Status |
+|---|---|---|
+| R1 | Jacket faces are geometrically interchangeable (ICP fitness 1.000, RMSE ~0.11 m), measured independently from sonar and from CAD | **Done** |
+| R2 | A suspected false loop closure, confirmed against independent geometry | **Done** (Task A) |
+| R3 | Place-recognition failure rate scales with a computable a-priori symmetry index | **In progress** — ladder built, failure axis not yet measured |
+| R4 | Gating loop closure on an independent modality does / does not mitigate it | Optional method half |
 
 ### 1.1 What counts as a result here, and what does not
 
 Most of what this project spends its time on is **debugging, not research**, and the two
-should not be confused in the manuscript. The distinction that matters:
+must not be confused in the manuscript.
 
-- **Engineering.** Making your own system work. Generalises to nobody. Examples from this
-  project: the missing `base_link`↔`imu_filter` TF; the pressure-to-depth conversion being
-  off by 226x; an `exec VAR=val` shell bug that killed a batch; a sign-reversal metric that
-  counted quantisation noise. Each was real, each had to be fixed before any measurement
-  could be trusted — and **none of them belong in a paper** beyond, at most, a line in a
-  reproducibility appendix.
+- **Engineering.** Making your own system work. Generalises to nobody. The missing
+  `base_link`↔`imu_filter` TF; the pressure-to-depth conversion off by 226x; an
+  `exec VAR=val` shell bug; a sign-reversal metric counting quantisation noise. All real,
+  all necessary before any measurement could be trusted, **none of them paper material**
+  beyond a line in a reproducibility appendix.
 - **Research.** A finding that holds beyond this codebase, that someone else can act on,
-  and that was not predictable in advance. R1 and R2 qualify: the four-fold symmetry of
-  jacket geometry is a property of the *inspection target class*, and the ICP verification
-  procedure is reusable by anyone asking "did my SLAM falsely close a loop?".
+  and that was not predictable in advance. R1 and R3 qualify: four-fold symmetry is a
+  property of the *inspection target class*, and the ICP procedure is reusable by anyone
+  asking whether their SLAM falsely closed a loop.
 
-**Task 9/10 is the degenerate case and should be labelled as such.** Inverting the surge
-column of the allocation matrix makes the vehicle travel backwards; that the mission then
-fails is derivable from first principles in seconds. Running 10 trials and reporting
-p=0.000051 adds rigour to something nobody doubted. Its real value was *instrumental* —
-it proved the run → extract → compare → report pipeline end to end before WS-C depends on
-it, and it surfaced three harness bugs that would otherwise have corrupted WS-C silently.
-Report it as pipeline validation or a worked example of the protocol, **not as a finding**.
+**Task 9/10 is the degenerate case.** Inverting the surge column makes the vehicle travel
+backwards; that the mission then fails is derivable in seconds. Ten trials and
+p=0.000051 added rigour to something nobody doubted. Its value was instrumental — it
+proved the run → extract → compare → report pipeline and surfaced three harness bugs that
+would have corrupted later work silently. **Report it as protocol validation, not as a
+finding.**
 
-**This sharpens what WS-C is for.** An ablation is only informative when the answer is not
-knowable in advance:
+### 1.2 Dropped, with reasons
 
-| Ablation | Informative? |
-|---|---|
-| `alloc_matrix` | **No** — tautological, outcome derivable from the sign flip |
-| `yaw_guard` | **Yes** — unclear whether the glitch it defends against still occurs post-TF-fix |
-| `crab_throttle` | **Yes** — the coupling it mitigates is real but its magnitude is unmeasured |
-| `antiwindup` | **Yes** — conditional integration vs plain clamp is a genuine design question |
-
-Run all four, but expect the paper's value to come from the bottom three, and be prepared
-for null results there — "the fix defends against a failure mode that does not arise under
-nominal conditions" is an honest, publishable outcome and must not be retuned away.
-
----
+- **v7-vs-v8 bearing comparison (old WS-B).** The baseline was a reconstruction of code
+  that no longer exists, so the headline would have been "our method beats a baseline we
+  rebuilt ourselves". Worse, `current_bearing()` is `atan2` on two known quantities — with
+  ground truth supplying position, "noiseless arithmetic beats a noisy sonar centroid" is
+  close to tautological, and it does not transfer to the real case where position is
+  exactly what you do not know.
+- **Ablation battery on our own fixes (old WS-C).** "Our fix fixes our bug" is hygiene,
+  not a contribution. The three non-tautological ablations (yaw guard, crab throttle,
+  anti-windup) would have been informative, but cost ~20 h of simulation for a secondary
+  result that does not survive the "why does this matter" question.
 
 ## 2. Workstreams
 
@@ -160,89 +162,73 @@ corrupted WS-C invisibly. Present it as protocol validation, not as a finding.
 
 ---
 
-### WS-B — Repair Phase 1 infrastructure, then run it
-**Status:** files delivered, both need work before use. **Effort:** ~1 day rework + ~6h unattended runs.
+### WS-B — Symmetry dose-response (R3) — **the main contribution**
+**Status:** measurement instrument and variant ladder done 2026-10-03; failure axis not
+yet measured. **Effort:** ~7 h simulation plus analysis, once the probe justifies it.
 
-#### B1 — The v7 baseline is forked from a stale base (must fix before any run)
+**The instrument.** `eval/structure_symmetry.py` computes face-to-face ICP similarity
+from the scenario's CAD. On the stock turbine all six face pairs register at fitness
+1.000, RMSE 0.101-0.113 m — against TASK_15's independent sonar-derived 0.996-1.000 and
+0.08-0.10 m. Two unrelated measurement paths agreeing to ~1 cm is what licenses using the
+cheap one: seconds per variant instead of a mission plus a sonar reconstruction. That is
+the only reason a dose-response is affordable at all, and it makes the index *a priori* —
+a designer or inspection planner has the CAD before anything is built.
 
-The delivered file is well-constructed in design: it is explicit that it is a reconstruction, documents the inverse-range weighting choice, isolates bearing extraction as the single experimental variable, and keeps v8's low-pass filtering style. **But it was forked from a pre-2026-09-22 controller** and is missing every fix made since:
+**The ladder** (`eval/make_variants.py`, `eval/symmetry_ladder.csv`). Faces 0 and 1 carry
+hardware; faces 2 and 3 stay bare. Two of four is deliberate — the unmarked pair remains
+mutually confusable, so failure should fall without reaching zero, which is the
+informative case rather than simply deleting the phenomenon.
 
-| Fix | occurrences in v7baseline | in current controller |
+| level | hardware | index @1.0 m |
 |---|---|---|
-| `max_yaw` authority caps | **0** | **13** |
-| `YAW_SEED_SETTLE` | 0 | 5 |
-| `RISE_YAW_MAX` | 0 | 3 |
-| `RISE_RETREAT_SPEED` | 0 | 4 |
+| L0 | bare | 1.000 |
+| L1 | anodes ×8 | 0.959 |
+| L2 | + riser | 0.829 |
+| L3 | + pipeline | 0.778 |
+| L4 | anodes ×20 | 0.717 |
 
-The `max_yaw` row is disqualifying on its own: the current controller caps yaw authority at 0.15 in 13 places across DESCEND / CLOSE_IN / SCAN / TRANSIT — **precisely the four phases `bearing_stability_metrics.py` measures**. Running as-is would compare *bearing method + yaw caps + seed-settle + RISE tuning* bundled together, and a reviewer could reasonably attribute any difference to the yaw caps rather than to bearing extraction, which is the actual claim.
+**Three manipulations were discarded before this one**, each caught by looking at the
+render rather than at the index — worth recording because the failure mode recurs:
+scaling a few objects up gave 7 m barrels and a 22.5 m pipe through the sea surface;
+scattering realistic objects put them at r = 13 m, visibly floating, with the jacket
+surface at r = 8.0-9.9 m; and drums bolted to a turbine represent nothing that exists
+offshore regardless of placement. The current hardware — risers, pipeline, sacrificial
+anodes — is what actually differs between faces of a real jacket.
 
-**Recommended fix — make bearing method an ablation switch instead of a separate fork:**
+**The failure axis is not yet chosen.** Candidates, all from existing tooling: re-aligns
+per mission (`eval/slam_align_harvest.py`), map-fragmentation events (detected in
+`slam_pose_bridge`), tracking-loss episodes (ORB-SLAM3 console). Re-aligns are the most
+direct, but a stock mission yields only 2-4, so if L4 drops to 0-1 the levels may not
+separate without many missions each.
 
-```
-DEEPSIGHT_BEARING=geometry   (default, current behaviour)
-DEEPSIGHT_BEARING=centroid   (ports _sonar_centroid_bearing from the v7baseline file)
-```
+**Probe before committing.** Two missions, L0 and L4, ~36 minutes. Clear separation
+justifies the full 5 x N batch; no separation means learning that for 36 minutes rather
+than 7 hours.
 
-read at class-definition time, exactly like the existing `BLUEROV2_BUGGY_ALLOC` flag. This is strictly better than maintaining a second file:
-- **Zero confound by construction** — one code path, one set of fixes, only the bearing source differs
-- Matches the generalised ablation-switch mechanism WS-C needs anyway
-- Committable and reproducible; the configuration of every trial is recoverable from its log
-- Two forks cannot silently drift apart over the months this paper takes
-
-The alternative — re-forking the v7 baseline from the *current* controller — also works and keeps the arms visibly separate, at the cost of a file that must be manually kept in sync. **The env-switch is the better option**; the reconstruction disclosure (below) is unaffected either way.
-
-Regardless of mechanism, the reconstruction must be disclosed verbatim in the paper's methods: this is a reconstruction from v8's own documented description of v7, with a stated inverse-range weighting choice, not recovered original code.
-
-#### B2 — Metric bug in `bearing_stability_metrics.py` (found and fixed 2026-10-01)
-
-`sign_reversals_per_min` is the protocol's "single most legible number for a reviewer." As delivered it was measuring something else, and the error ran **against** the method the paper argues for.
-
-Measured on a real v8 log (2147 bearing-phase samples, 1073 s):
-
-| counting method | reversals | per min |
-|---|---|---|
-| as delivered (`np.sign` comparison) | 60 | **3.36** |
-| exact zeros carried forward | 13 | 0.73 |
-| + 1.0° deadband (true side-swaps) | 1 | **0.06** |
-
-Two compounding causes, both of which inflate the count *more* the better the controller holds bearing:
-1. `np.sign(0.0)` is `0`, distinct from both `+1` and `-1`, so every entry into and exit from an exact zero scored as two reversals. That log had 78 exact zeros; 47 of the 60 counted "reversals" came from them.
-2. `world_bearing_deg` is logged at 0.1° resolution, and a well-tuned controller parks it within a few tenths of zero (`bearing_abs_mean_deg` = 0.45, `std` = 0.42) — so quantisation jitter alone crosses the axis constantly.
-
-Left unfixed, v8 would have been reported as believing the turbine swapped sides every ~18 s while actually holding bearing to under half a degree. v7's swings are large and mostly real, so the bug would have compressed the measured gap between the arms and handed a reviewer an easy line of attack.
-
-**Fixed** (`eval/bearing_stability_metrics.py`, now in repo): last nonzero sign is carried forward, and a stated `deadband_deg` parameter (default 1.0°) requires the estimate to actually commit to a side. Both the deadbanded and non-deadbanded counts are reported so the parameter's effect is visible rather than buried. The deadband is a **stated analysis parameter — do not sweep it until the comparison looks good.**
-
-#### B3 — Run it
-N≥10 per arm, through `run_batch.py` extended with a controller/bearing-mode argument so both arms get byte-identical orchestration. Metrics via the corrected script, aggregated per §3.
-
-**Exit criteria:** bearing mode switchable within one controller; ≥10 runs per arm; metrics aggregated with §3 statistics; reconstruction disclosure drafted.
+**THE STANDING RISK.** The index is **geometric**; ORB-SLAM3's place recognition is
+**appearance**-based. TASK_15 assumed geometric symmetry implies visual symmetry —
+plausible, and it was true when the faces were bare, but with textured hardware added
+that link is now an assumption rather than a measurement. If the dose-response comes out
+flat, suspect this first. The fix is an appearance-side index (bag-of-words similarity
+between rendered face views) alongside the geometric one, and **which of the two better
+predicts failure would itself be a result** worth more than the curve.
 
 ---
 
-### WS-C — Ablation battery on v8 itself
-**Status:** not started; depends on WS-A proving the loop. **Effort:** ~20h unattended sim + ~1 day analysis.
+### WS-C — Cross-modal loop-closure gate (R4) — optional method half
+**Status:** not started; recommended by TASK_15 but deliberately left open there.
+**Effort:** moderate; only attempt once WS-B lands.
 
-**Methodological upgrade over the protocol:** the protocol says to disable each fix "in a throwaway local edit — never commit." Don't. We already built the better pattern during #9 — an environment-variable ablation switch (`BLUEROV2_BUGGY_ALLOC`). Generalise it:
+Reject a proposed visual loop closure when independent sonar geometry disagrees, and
+measure map fragmentation before and after. Turns the paper from "here is a problem" into
+"here is a problem and a mitigation", which is the standard arc.
 
-```
-DEEPSIGHT_ABLATE=yaw_guard,crab_throttle,...
-```
-
-read once at class-definition time, each flag selecting the degraded code path. This is reproducible, reviewable, committable, and means the exact configuration of every reported trial is recoverable from its log — which is precisely what a journal's code-availability statement needs. Throwaway uncommitted edits are unreproducible by construction.
-
-| Ablation | Degraded path | Primary metric expected to worsen |
-|---|---|---|
-| `yaw_guard` | `_filter_yaw()` sets `self.yaw_ekf = raw_yaw` unconditionally | `max_abs_yawrate_overall_degs`, outcome rate |
-| `crab_throttle` | `crab_factor = 1.0` always in `_do_close_in()` | `max_abs_sway_mps`, `orbit_tracking_err_rms_m` |
-| `antiwindup` | `vel_ctrl()` integrator reverts to plain clamp | tracking error during TRANSIT |
-| `alloc_matrix` | already implemented (`BLUEROV2_BUGGY_ALLOC`) | outcome rate — **done in WS-A** |
-
-Baseline arm is the existing #8 data, **extended from 7 to ≥12 trials** so every comparison has matched N.
-
-**Exit criteria:** ≥12 trials per arm across 4 arms + baseline; per-ablation table with the statistics from §3; each row convertible into the sentence form *"disabling X increases Y from A±B to C±D across N trials (effect size, CI)."*
-
----
+**Expect it may not work, and report that honestly.** The sonar-derived faces are
+*themselves* near-identical (fitness ≥0.996 — that is R1), so a geometric gate may have
+no more to discriminate on than the visual matcher does. If so, the finding is sharper
+than a working gate would have been: *neither appearance nor geometry disambiguates faces
+on a radially symmetric jacket; disambiguation requires odometric continuity or an
+external reference.* That is a real claim about the problem class.
 
 ### WS-D — Consolidate the two existing geometric results
 **Status:** both written up; need conversion from internal findings docs into paper sections. **Effort:** ~1 day.
@@ -304,25 +290,29 @@ The protocol writes "(p<...)" without naming a test. Fill that in deliberately, 
 ## 4. Sequencing and critical path
 
 ```
-WS-A (1 evening)  ──┬──> WS-C (20h sim, ~1 week wall-clock)  ──┐
-                    │                                          ├──> WS-F ──> write-up
-WS-B (1-2d build) ──┴──> WS-B runs (6h sim)  ─────────────────┤
-WS-D (1 day)  ────────────────────────────────────────────────┤
-WS-E (1-2 days, fully parallel) ──────────────────────────────┘
+WS-0 GPS-free probe  [heading PASSED 2026-10-02]
+        |
+        +--> anchor-free rework (the setting)  ~1 week  --+
+        |                                                 |
+WS-B symmetry dose-response  [ladder done]                |
+        |                                                 +--> WS-F --> write-up
+        +--> L0/L4 probe (36 min) --> 5 x N batch (~7 h)  |
+                      |                                   |
+                      +--> WS-C gate, if time ------------+
+WS-D, WS-E  (no simulation, fully parallel) --------------+
 ```
 
-**Critical path is WS-B's implementation** — it's the only workstream requiring substantial new code, and nothing in Phase 1 can start until it exists. Start it as soon as WS-A's batch is running unattended.
+**Critical path is WS-B's failure axis.** Everything else is either done, optional, or
+parallelisable. The L0/L4 probe gates the 7-hour batch and should always run first.
 
-**WS-D and WS-E are fully parallel** — they need no sim time at all and can absorb any evening where the machine is busy running trials.
+**WS-D and WS-E need no machine time** and should absorb any period where the simulator
+is busy — which, given the batch sizes here, is most of them.
 
-Suggested order:
-1. Kick off WS-A's batch tonight (unattended)
-2. Begin WS-B implementation while it runs
-3. WS-E verification in parallel (no machine contention)
-4. WS-C once WS-A proves the loop end-to-end
-5. WS-D + WS-F during WS-C's long unattended runs
-
----
+**The anchor-free rework and WS-B are independent** and can proceed in either order. Doing
+the rework first makes the dose-response more meaningful (SLAM actually drives the
+vehicle, so place-recognition failure has mission-level consequences rather than just
+corrupting telemetry). Doing WS-B first de-risks the contribution. If time is tight,
+WS-B first — it is the contribution; the rework is the setting.
 
 ## 5. Risk register
 
@@ -353,11 +343,18 @@ Task #15's loop-closure/merge gate is likewise future work (§WS-D).
 
 ## 7. Immediate next actions
 
-1. **Tonight, unattended:** `python3 eval/run_batch.py --n 10 --prefix buggy --buggy-alloc --timeout 180 --log eval/results.jsonl`
-2. **Decide:** `DEEPSIGHT_BEARING` env-switch vs. re-forking the v7 baseline (§WS-B1) — this gates all of Phase 1
-3. **Decide:** Git LFS vs `.gitignore` for `slam_atlas/deepsight_map.osa` (blocks the next push either way)
-4. **Parallel, any time:** move the literature base into `docs/literature/` and start DOI verification
-
-### Already done in this session
-- `eval/bearing_stability_metrics.py` moved into the repo with the side-swap counting bug fixed and verified (§WS-B2)
-- Stale-fork confound in the v7 baseline identified before any runs were wasted on it (§WS-B1)
+1. **L0 / L4 probe missions** (~36 min) — gates the 7-hour batch. Needs ORB-SLAM3 running,
+   so it is a manual run rather than `run_trial.py`, which does not launch the container.
+2. **Choose the failure axis** from the probe: re-aligns per mission, map-fragmentation
+   events, or tracking-loss episodes.
+3. **If the probe separates**, run 5 levels x N missions and fit failure against index.
+   **If it does not**, test the appearance-side index before concluding the effect is
+   absent (see WS-B's standing risk).
+4. **Parallel, any time, no machine needed:** move the literature base into
+   `docs/literature/` and verify the DOIs (WS-E); draft the limitations section (WS-F)
+   *before* the results are final, so it constrains what they are allowed to claim.
+5. **Still open from earlier:** the anchor-free rework's first full run has not happened.
+   `slam_pose_bridge` is parameterised and `ekf_gpsfree.yaml` points at it, but the
+   bridge's thresholds (5 m reject, 40-rejection stale, 15 deg refit cap) were tuned
+   against a ground-truth-anchored reference and may not survive the feedback loop. Watch
+   that run live rather than batching it.
