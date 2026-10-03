@@ -73,12 +73,18 @@ must not be confused in the manuscript.
   property of the *inspection target class*, and the ICP procedure is reusable by anyone
   asking whether their SLAM falsely closed a loop.
 
-**Task 9/10 is the degenerate case.** Inverting the surge column makes the vehicle travel
-backwards; that the mission then fails is derivable in seconds. Ten trials and
-p=0.000051 added rigour to something nobody doubted. Its value was instrumental — it
-proved the run → extract → compare → report pipeline and surfaced three harness bugs that
-would have corrupted later work silently. **Report it as protocol validation, not as a
-finding.**
+**Task 9/10 does not go in the paper at all.** Inverting the surge column makes the
+vehicle travel backwards; that the mission then fails is derivable in seconds, and ten
+trials with p=0.000051 add rigour to something nobody doubted. An earlier draft of this
+plan said to "report it as protocol validation" — that was still too generous. *We
+verified our code works by breaking it* is a regression test, and any section that
+invites the question "what is big about this?" costs more than it earns.
+
+Its value was real but private, and is already banked: it proved the
+run → extract → compare → report loop end to end, and surfaced three harness bugs
+(silent bag-directory collisions, discarded controller stdout, the `exec VAR=val` shell
+bug) that would otherwise have corrupted the symmetry study invisibly. The harness,
+metrics extractor and statistics stay. The comparison does not appear in the manuscript.
 
 ### 1.2 Dropped, with reasons
 
@@ -129,17 +135,17 @@ python3 eval/gpsfree_probe.py
 
 ---
 
-### WS-A — Close the allocation-matrix ablation (#9 → #10) — **DONE 2026-10-03**
+### WS-A — Allocation-matrix ablation (#9 → #10) — **DONE, and CUT from the paper**
 **Outcome:** 7/7 fixed complete vs 0/10 buggy, Fisher exact p=0.000051; four of five
 secondary metrics separate completely (Cliff's δ = 1.00) over a matched 180 s window.
 `eval/compare_alloc.py`, `eval/figures/task10_alloc_comparison.png`.
 
-**Read §1.1 before using this anywhere.** The result is tautological as science — inverting
-the surge column makes the vehicle go backwards, and the rest follows. Its value was
-proving the pipeline end to end, which it did, including by surfacing three harness bugs
-(bag-directory collisions silently logging success, controller stdout being discarded, and
-an `exec VAR=val` shell bug that killed every buggy trial in 0.3 s) that would have
-corrupted WS-C invisibly. Present it as protocol validation, not as a finding.
+**This does not go in the manuscript** — see §1.1. The result is tautological, and
+presenting it invites exactly the question a reviewer would ask. It earned its keep by
+proving the pipeline end to end and by surfacing three harness bugs (bag-directory
+collisions silently logging success, controller stdout being discarded, and an
+`exec VAR=val` shell bug that killed every buggy trial in 0.3 s) that would have corrupted
+the symmetry study invisibly. That is a private benefit, not a published one.
 
 **Two methodological points worth carrying forward:**
 - Continuous metrics use a **matched window**, because the arms have very different
