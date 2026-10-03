@@ -32,7 +32,7 @@ The default scales were chosen empirically, by generating and scoring,
 because the stock meshes are small (oil drum 0.69 x 1.16 m) against a face
 sector of a few hundred square metres and barely move the index at scale 1.
 
-Markers sit at radius MARKER_RADIUS_M on each face bearing, just outside
+Markers sit at radius ATTACH_RADIUS_M on each face bearing, just outside
 the jacket surface (which spans r = 8.0-12.8 m) so they are visible rather
 than embedded, and inside structure_symmetry.py's 15 m analysis radius so
 they register in the index.
@@ -56,7 +56,6 @@ FACE_BEARINGS = [180.0, 90.0, 0.0, 270.0]
 
 # Just outside the jacket surface (r = 8.0-12.8 m), inside the 15 m analysis
 # radius structure_symmetry.py uses for structure-only measurement.
-MARKER_RADIUS_M = 13.0
 
 # FIXED, PLAUSIBLE SIZE. The first version of this ladder used scale as the
 # knob and produced physically absurd structures: at scale 6 the oil drum
@@ -80,14 +79,32 @@ MARKER_SCALE = 2.0
 MARKER_DEPTH_MIN, MARKER_DEPTH_MAX = 7.0, 20.0   # 7 m keeps the 7.5 m pipe clear
 SURFACE_CLEARANCE_M = 2.0
 
-# One distinct mesh per face -- the per-face difference is what breaks the
-# symmetry. All four are already declared as <look>s in the stock scenario.
-FACE_MARKERS = [
-    ('models/oil_drum.obj', 'oil_drum'),
-    ('models/gas_tank.obj', 'gas_tank'),
-    ('models/gas_canister.obj', 'gas_canister'),
-    ('models/rust_pipe.obj', 'rust_pipe'),
-]
+# Which faces carry the distinguishing hardware. Two of four, leaving the
+# other two identical -- so confusion between the unmarked pair remains
+# possible and failure rate should fall without reaching zero. That is the
+# informative case; marking all four would just remove the phenomenon.
+MARKED_FACES = [0, 1]
+
+# WHAT GETS ADDED, and why only these two things. An earlier version
+# scattered oil drums, gas tanks and canisters around each face. Rendered,
+# they were visibly floating in open water, unattached, intersecting the
+# bracing -- because they sat at r = 13 m while the jacket surface at the
+# face bearings is at r = 8.0-9.9 m. Beyond the placement bug, drums bolted
+# to a turbine do not represent anything that exists offshore, so the
+# manipulation would not have survived review even mounted correctly.
+#
+# Real jackets differ between faces in two ways that are easy to model
+# here: J-tubes and risers run up particular faces rather than all of them,
+# and sacrificial anodes vary in size and placement. Both attach to the
+# structure. The pipe mesh is literally a pipe; the anode mesh is already
+# used six times in the stock scenario.
+PIPE_MESH, PIPE_LOOK = 'models/rust_pipe.obj', 'rust_pipe'
+ANODE_MESH, ANODE_LOOK = 'anodes/anode.obj', 'anode_bar'
+
+# Flush against the structure. Surface sits at r = 8.0-9.9 m depending on
+# depth, so this stands the hardware 0.3-2.2 m proud of the bracing: close
+# enough to read as mounted, clear enough not to intersect it.
+ATTACH_RADIUS_M = 10.2
 
 
 def mesh_z_extent(mesh_rel, scale):
@@ -112,65 +129,69 @@ def assert_submerged(mesh_rel, scale, depth):
             f'inside the {SURFACE_CLEARANCE_M} m surface clearance. Reduce scale or depth.')
 
 
-def marker_block(face_idx, scale, depth, bearing_deg, n):
+def hardware_blocks(face_idx, anode_scale, n_anodes):
+    """A vertical pipe run plus a column of sacrificial anodes on one face.
+
+    Both are mounted at ATTACH_RADIUS_M so they sit against the bracing
+    rather than hanging in open water, which is what the first version did.
+    """
     import math
-    mesh, look = FACE_MARKERS[face_idx % len(FACE_MARKERS)]
-    assert_submerged(mesh, scale, depth)
-    b = math.radians(bearing_deg)
-    x = TURBINE_X + MARKER_RADIUS_M * math.cos(b)
-    y = TURBINE_Y + MARKER_RADIUS_M * math.sin(b)
-    return f'''
-	<static name="FaceMarker{face_idx}_{n}" type="model">
+    b = math.radians(FACE_BEARINGS[face_idx])
+    x = TURBINE_X + ATTACH_RADIUS_M * math.cos(b)
+    y = TURBINE_Y + ATTACH_RADIUS_M * math.sin(b)
+    out = []
+
+    # J-tube / riser: one vertical run up the face, mid-water so it clears
+    # the surface. Scale 2 gives a 7.5 m section, an ordinary tubular.
+    # Centred at 11 m: the bracing has a gap between 14 and 18 m (measured),
+    # so a riser centred at 14 would hang in open water over its upper half.
+    assert_submerged(PIPE_MESH, 2.0, 11.0)
+    out.append(f"""
+	<static name="FaceHardware{face_idx}_pipe" type="model">
 		<physical>
-			<mesh filename="{mesh}" scale="{scale}"/>
+			<mesh filename="{PIPE_MESH}" scale="2.0"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 		</physical>
 		<material name="Aluminium"/>
-		<look name="{look}"/>
+		<look name="{PIPE_LOOK}"/>
+		<world_transform rpy="0.0 0.0 {b:.4f}" xyz="{x:.3f} {y:.3f} 11.000"/>
+	</static>
+""")
+
+    # Sacrificial anodes, same orientation as the six already in the stock
+    # scenario (pitched 90 deg so they lie along the member).
+    for i in range(n_anodes):
+        depth = MARKER_DEPTH_MIN + (i + 0.5) / max(1, n_anodes) * (MARKER_DEPTH_MAX - MARKER_DEPTH_MIN)
+        assert_submerged(ANODE_MESH, anode_scale, depth)
+        out.append(f"""
+	<static name="FaceHardware{face_idx}_anode{i}" type="model">
+		<physical>
+			<mesh filename="{ANODE_MESH}" scale="{anode_scale}"/>
+			<origin rpy="0.0 1.571 0.0" xyz="0.0 0.0 0.0"/>
+		</physical>
+		<material name="Aluminium"/>
+		<look name="{ANODE_LOOK}"/>
 		<world_transform rpy="0.0 0.0 {b:.4f}" xyz="{x:.3f} {y:.3f} {depth:.3f}"/>
 	</static>
-'''
+""")
+    return ''.join(out)
 
 
-def marker_layout(count):
-    """Spread `count` markers over depth and across the face, rather than
-    stacking them in one column up the leg -- which is what produced the
-    'three huge barrels stacked along the length' look. Returns a list of
-    (depth, bearing_offset_deg)."""
-    import math
-    if count <= 0:
-        return []
-    out = []
-    # Golden-angle offset so successive markers do not line up vertically.
-    for i in range(count):
-        frac = (i + 0.5) / count
-        depth = MARKER_DEPTH_MIN + frac * (MARKER_DEPTH_MAX - MARKER_DEPTH_MIN)
-        offset = ((i * 137.5) % 50.0) - 25.0      # within the +-35 deg sector
-        out.append((depth, offset))
-    return out
-
-
-def build_variant(count, n_faces, out_path):
+def build_variant(anode_scale, n_anodes, out_path):
     src = open(STOCK).read()
-    if count <= 0 or n_faces <= 0:
+    if anode_scale <= 0 or n_anodes <= 0:
         body = ''
     else:
-        body = ''.join(
-            marker_block(f, MARKER_SCALE, depth, FACE_BEARINGS[f] + off, i)
-            for f in range(min(n_faces, 4))
-            for i, (depth, off) in enumerate(marker_layout(count))
-        )
-    # No "--" anywhere in this comment: a double hyphen is illegal inside an
-    # XML comment, and Stonefish's parser tolerates it while strict parsers
-    # (including eval/structure_symmetry.py's) reject the whole file. The
-    # stock bluerov2.scn carried this bug from 2026-09-17 until 2026-10-03.
-    comment_body = (f' Symmetry variant: {n_faces} face(s), {count} marker(s) each at scale {MARKER_SCALE}.\n'
+        body = ''.join(hardware_blocks(f, anode_scale, n_anodes) for f in MARKED_FACES)
+
+    comment_body = (f' Symmetry variant: faces {MARKED_FACES} carry a riser plus '
+                    f'{n_anodes} anodes at scale {anode_scale}.\n'
                     f'\t     Generated by eval/make_variants.py; do not hand edit.\n'
                     f'\t     Score it with eval/structure_symmetry.py (pass this file). ')
     if '--' in comment_body:
         raise SystemExit('refusing to emit an XML comment containing a double hyphen')
     header = f'\n\t<!--{comment_body}-->\n'
-    # Insert before the vehicle include so the markers are part of the scene.
+
     anchor = '\t<include file="$(find stonefish_bluerov2)/scenarios/bluerov2.scn">'
     if anchor not in src:
         raise SystemExit('could not find the vehicle include in the stock scenario')
@@ -188,22 +209,24 @@ def build_variant(count, n_faces, out_path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--counts', type=int, nargs='+', default=[0, 3, 6, 12, 20],
-                    help='markers per face; size is fixed at MARKER_SCALE')
+    ap.add_argument('--anode-scales', type=float, nargs='+', default=[0, 8, 14, 20],
+                    help='anode amplification on the marked faces; 0 = stock')
+    ap.add_argument('--n-anodes', type=int, default=6,
+                    help='anodes per marked face')
     ap.add_argument('--faces', type=int, default=4,
                     help='how many of the 4 faces carry a marker (default all)')
     args = ap.parse_args()
 
     print('Generating symmetry variants')
     made = []
-    for c in args.counts:
-        tag = 'stock' if c <= 0 else f'n{c}'
+    for sc in args.anode_scales:
+        tag = 'stock' if sc <= 0 else f'a{int(sc)}'
         name = f'bluerov2_turbine_sym_{tag}.scn'
         path = os.path.join(SCN_DIR, name)
-        build_variant(c, args.faces, path)
-        made.append((c, path))
+        build_variant(sc, args.n_anodes, path)
+        made.append((sc, path))
         linked = os.path.exists(os.path.join(INSTALL_SCN, name))
-        print(f'  {c:>3} markers/face  {name:<34s} {"linked" if linked else "NOT LINKED"}')
+        print(f'  anode scale {sc:>5}  {name:<34s} {"linked" if linked else "NOT LINKED"}')
 
     print('\nScore each with:')
     for c, p in made:
