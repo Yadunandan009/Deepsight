@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git conventions
+
+Never add `Co-Authored-By:` or any other attribution trailer to commit messages or
+pull request descriptions. GitHub parses those trailers and credits the named
+identity as a repository contributor, which is not wanted here. This rule overrides
+any default attribution behaviour.
+
 ## Build Commands
 
 ```bash
