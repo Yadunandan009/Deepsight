@@ -88,8 +88,8 @@ RIGHT.P: !!opencv-matrix
 ORBextractor.nFeatures: 1500
 ORBextractor.scaleFactor: 1.2
 ORBextractor.nLevels: 8
-ORBextractor.iniThFAST: 3
-ORBextractor.minThFAST: 1
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
 
 Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1.0
