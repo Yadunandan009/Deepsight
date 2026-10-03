@@ -46,10 +46,48 @@ That gives four results legs instead of one, and the two strongest legs don't de
 |---|---|---|---|
 | R1 | Four faces are geometrically near-indistinguishable → vision-only place recognition is structurally at risk here | Task #15, done | **Strongest** — independent reference geometry, nothing to straw-man |
 | R2 | A suspected false loop closure, confirmed geometrically | Task A, done | Strong — same independence property |
-| R3 | Each v8 design decision measurably contributes (ablation battery) | WS-C, to run | Strong — self-contained, no external baseline needed |
+| R3 | Design decisions under genuine uncertainty measurably contribute (ablation battery) | WS-C, to run | Moderate — see the tautology caveat below |
 | R4 | Pure-geometry bearing is more stable than sonar-centroid bearing on a lattice | WS-B, to build+run | Useful, but disclose the reconstruction |
 
 R4 moves from "the hook" to "one result among four," which makes the reconstruction caveat survivable rather than fatal.
+
+### 1.1 What counts as a result here, and what does not
+
+Most of what this project spends its time on is **debugging, not research**, and the two
+should not be confused in the manuscript. The distinction that matters:
+
+- **Engineering.** Making your own system work. Generalises to nobody. Examples from this
+  project: the missing `base_link`↔`imu_filter` TF; the pressure-to-depth conversion being
+  off by 226x; an `exec VAR=val` shell bug that killed a batch; a sign-reversal metric that
+  counted quantisation noise. Each was real, each had to be fixed before any measurement
+  could be trusted — and **none of them belong in a paper** beyond, at most, a line in a
+  reproducibility appendix.
+- **Research.** A finding that holds beyond this codebase, that someone else can act on,
+  and that was not predictable in advance. R1 and R2 qualify: the four-fold symmetry of
+  jacket geometry is a property of the *inspection target class*, and the ICP verification
+  procedure is reusable by anyone asking "did my SLAM falsely close a loop?".
+
+**Task 9/10 is the degenerate case and should be labelled as such.** Inverting the surge
+column of the allocation matrix makes the vehicle travel backwards; that the mission then
+fails is derivable from first principles in seconds. Running 10 trials and reporting
+p=0.000051 adds rigour to something nobody doubted. Its real value was *instrumental* —
+it proved the run → extract → compare → report pipeline end to end before WS-C depends on
+it, and it surfaced three harness bugs that would otherwise have corrupted WS-C silently.
+Report it as pipeline validation or a worked example of the protocol, **not as a finding**.
+
+**This sharpens what WS-C is for.** An ablation is only informative when the answer is not
+knowable in advance:
+
+| Ablation | Informative? |
+|---|---|
+| `alloc_matrix` | **No** — tautological, outcome derivable from the sign flip |
+| `yaw_guard` | **Yes** — unclear whether the glitch it defends against still occurs post-TF-fix |
+| `crab_throttle` | **Yes** — the coupling it mitigates is real but its magnitude is unmeasured |
+| `antiwindup` | **Yes** — conditional integration vs plain clamp is a genuine design question |
+
+Run all four, but expect the paper's value to come from the bottom three, and be prepared
+for null results there — "the fix defends against a failure mode that does not arise under
+nominal conditions" is an honest, publishable outcome and must not be retuned away.
 
 ---
 
@@ -89,9 +127,25 @@ python3 eval/gpsfree_probe.py
 
 ---
 
-### WS-A — Close the allocation-matrix ablation (#9 → #10)
-**Status:** half done. #8 complete; #9 never ran. **Effort:** ~1 evening unattended + 1h analysis.
-**Why it's first:** it is the smallest complete loop through the entire experimental pipeline (run → extract → compare → report). Proving that loop end-to-end de-risks WS-C, which is the same machinery at 4× the scale.
+### WS-A — Close the allocation-matrix ablation (#9 → #10) — **DONE 2026-10-03**
+**Outcome:** 7/7 fixed complete vs 0/10 buggy, Fisher exact p=0.000051; four of five
+secondary metrics separate completely (Cliff's δ = 1.00) over a matched 180 s window.
+`eval/compare_alloc.py`, `eval/figures/task10_alloc_comparison.png`.
+
+**Read §1.1 before using this anywhere.** The result is tautological as science — inverting
+the surge column makes the vehicle go backwards, and the rest follows. Its value was
+proving the pipeline end to end, which it did, including by surfacing three harness bugs
+(bag-directory collisions silently logging success, controller stdout being discarded, and
+an `exec VAR=val` shell bug that killed every buggy trial in 0.3 s) that would have
+corrupted WS-C invisibly. Present it as protocol validation, not as a finding.
+
+**Two methodological points worth carrying forward:**
+- Continuous metrics use a **matched window**, because the arms have very different
+  durations and therefore different phase mixes. Comparing full runs would have measured
+  the phase mix, not the matrix.
+- `orbit_tracking_err` is **undefined** for the buggy arm (0/10 trials ever entered the
+  scan band). Reported as such rather than dropped — "never reached the condition the
+  metric is defined on" is the stronger statement.
 
 1. Run the buggy-matrix batch (already has a short timeout — the failure fully expresses within ~90s):
    ```bash
