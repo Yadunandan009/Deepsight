@@ -25,3 +25,7 @@ external/
 
 # Per-trial evaluation bags -- regenerate via eval/run_trial.py.
 eval/bags/
+
+# Figure extraction caches -- regenerate by deleting and re-running the
+# fig_*.py script. Derived from the bags, not source.
+eval/figures/.*_cache.json

@@ -31,7 +31,13 @@ ROS_SETUP = (
     "unset VIRTUAL_ENV && "
     "source /opt/ros/jazzy/setup.bash && source /home/yadunandan/ros2_ws/install/setup.bash"
 )
-BAG_TOPICS = "/bluerov2/odometry /bluerov2/robot_pose_slam_ekf /bluerov2/setpoint/pwm"
+# /bluerov2/map_points added 2026-10-03: the SLAM point cloud is what the
+# mission actually produces, and without it there is no way to show
+# reconstruction quality -- or its distortion -- in a figure. It is also a
+# candidate second axis for the symmetry dose-response, alongside re-align
+# counts. Costs bag size, which is why trials are capped at 180 s anyway.
+BAG_TOPICS = ("/bluerov2/odometry /bluerov2/robot_pose_slam_ekf "
+              "/bluerov2/setpoint/pwm /bluerov2/map_points")
 
 
 def start(cmd, extra_env=None):
