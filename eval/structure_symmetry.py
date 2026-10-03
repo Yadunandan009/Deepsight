@@ -281,10 +281,13 @@ def main():
     ap.add_argument('--scn', default=DEFAULT_SCN)
     ap.add_argument('--samples', type=int, default=30000)
     ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--inlier', type=float, default=ICP_INLIER_M,
+                    help='ICP inlier threshold in m; 1.0 matches TASK_A/15, smaller resolves finer features')
     ap.add_argument('--max-radius', type=float, default=MAX_RADIUS_M,
                     help='radial cut-off; structure-only ~15 m, scene-with-background ~30 m')
     args = ap.parse_args()
     globals()['MAX_RADIUS_M'] = args.max_radius
+    globals()['ICP_INLIER_M'] = args.inlier
     rng = np.random.default_rng(args.seed)
 
     entries = parse_scenario(args.scn)
