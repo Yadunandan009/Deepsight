@@ -1,4 +1,15 @@
 ### EKF Configuration for BlueROV2 (ROS 2 Jazzy)
+###
+### ANCHOR-FREE as of 2026-10-08. There is no ground-truth input to this
+### filter. Absolute position comes from ORB-SLAM3 via slam_pose_bridge,
+### depth from the pressure sensor, heading from the IMU, and velocity
+### from the DVL -- which is what carries dead reckoning through the
+### tracking losses ORB-SLAM3 suffers on this structure, and what lets
+### the filter publish at all before SLAM has a map to align against.
+###
+### The anchored version is in git history (pre-2026-10-08) if a baseline
+### run is needed; it is not kept as a second file, because two
+### near-identical configs drift apart.
 ekf_filter_node:
   ros__parameters:
     frequency: 50.0
@@ -15,18 +26,32 @@ ekf_filter_node:
     world_frame: world_ned
 
     # ----------------------------------------------------------------
-    # SENSOR 0: Raw INS Odometry (PRIMARY ANCHOR)
-    # Starts at Z=0 every run — prevents EKF accumulation between runs
-    # Provides: X, Y, Z, Yaw as absolute reference
+    # SENSOR 0: REMOVED 2026-10-08 -- this was /bluerov2/odometry, a
+    # Stonefish type="odometry" sensor with no noise block, i.e. GROUND
+    # TRUTH, supplying absolute X/Y/Z/Yaw at 100 Hz. Its absence is the
+    # entire point of this configuration.
+    #
+    # WHAT THIS CHANGES, beyond the filter. The controller navigates on
+    # /bluerov2/odometry/filtered -- this filter's output -- so removing
+    # the anchor here puts the vehicle on a genuinely unanchored estimate
+    # without touching a line of control code. Everything downstream
+    # inherits it: slam_pose_bridge aligns its SLAM->world transform
+    # against /bluerov2/odometry/filtered too, so the loop
+    # SLAM -> bridge -> EKF -> bridge now closes with no external truth
+    # anywhere in it.
+    #
+    # Stonefish keeps publishing /bluerov2/odometry regardless. It is no
+    # longer an input to anything -- it is the scoring signal, used only
+    # to measure how far the estimate has drifted.
+    #
+    # EXPECT BEARING TO DEGRADE. current_bearing() in the controller is
+    # atan2 on the known turbine position minus this filter's (x, y); its
+    # docstring claims "zero sensor noise on this signal by construction",
+    # which was true only because the construction was fed ground truth.
+    # Range/standoff control is unaffected: it runs off the multibeam
+    # minimum return through the controller's own 2-state range EKF, and
+    # is structure-relative already.
     # ----------------------------------------------------------------
-    odom0: /bluerov2/odometry
-    odom0_config: [true,  true,  true,   # X, Y, Z
-                   false, false, true,   # Roll, Pitch, Yaw
-                   false, false, false,  # NO velocity from INS
-                   false, false, false,
-                   false, false, false]
-    odom0_differential: false
-    odom0_relative: false
 
     # ----------------------------------------------------------------
     # SENSOR 1: ORB SLAM3 (Stereo Odometry)
@@ -42,10 +67,23 @@ ekf_filter_node:
     pose0_differential: false
     pose0_relative: false
 
-    # SENSOR 2: Depth (Pressure Sensor) — DISABLED
-    # Pressure sensor has ~10m absolute offset vs odometry
-    # Raw odometry Z is more reliable for depth
-    # pose1: /bluerov2/depth_pose
+    # ----------------------------------------------------------------
+    # SENSOR 2: Depth (pressure) -- RE-ENABLED 2026-10-08.
+    # Previously disabled on the grounds that the pressure sensor had a
+    # ~10 m absolute offset and "raw odometry Z is more reliable". Both
+    # halves of that are now obsolete: the offset was a 226x conversion
+    # error, fixed and verified against ground truth to 0.013 m
+    # (fb44283, eval/verify_depth.py), and the odometry it deferred to
+    # was ground truth, which is gone. This is now the ONLY absolute Z.
+    # ----------------------------------------------------------------
+    pose1: /bluerov2/depth_pose
+    pose1_config: [false, false, true,   # Z only
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose1_differential: false
+    pose1_relative: false
 
     # ----------------------------------------------------------------
     # SENSOR 3: IMU
@@ -60,11 +98,20 @@ ekf_filter_node:
     # disabled, ruling that out) showed persistent ~180deg disputed
     # jumps in the fused yaw with no controller/SLAM cause, consistent
     # with these two absolute yaw sources occasionally disagreeing.
-    # odom0 is already the documented "PRIMARY ANCHOR" for yaw; no
-    # reason to fuse a second, independently-reconstructed one.
+    # odom0 was the documented "PRIMARY ANCHOR" for yaw; no reason to
+    # fuse a second, independently-reconstructed one.
+    #
+    # RE-ENABLED 2026-10-08 with odom0's removal. The reason for
+    # disabling it was that it duplicated the anchor; with the anchor
+    # gone, this is the only absolute yaw source the vehicle has -- there
+    # is no magnetometer or gyrocompass on it. The ~180deg disputed-jump
+    # failure described above was a symptom of TWO absolute yaw sources
+    # disagreeing, which cannot recur when there is only one. Verified in
+    # the 2026-10-02 probe: yaw held to 0.08deg mean with no growth over
+    # a full mission on IMU alone.
     imu0: /bluerov2/imu
     imu0_config: [false, false, false,
-                  true,  true,  false,  # Roll, Pitch (Yaw: see above)
+                  true,  true,  true,   # Roll, Pitch, Yaw
                   false, false, false,
                   true,  true,  true,   # Angular velocities
                   false, false, false]

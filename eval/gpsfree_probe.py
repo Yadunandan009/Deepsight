@@ -1,38 +1,49 @@
 #!/usr/bin/env python3
 """
-GPS-free probe: does heading survive without the ground-truth anchor?
+Anchor-free run monitor: how far does the flight estimate drift, and does
+the mission survive it?
 
-THE QUESTION. The live stack's EKF is anchored on /bluerov2/odometry, a
-Stonefish type="odometry" sensor with no noise block -- ground truth,
-supplying absolute X/Y/Z/yaw at 100Hz. Removing that anchor is the
-difference between "station-keeping when told where you are" and actual
-GPS-free navigation. The single thing most likely to make that rework
-expensive is heading: with odom0 gone, yaw rests on IMU alone, and there
-is no magnetometer or gyrocompass in this vehicle to bound its drift.
+WHAT CHANGED 2026-10-08. This started as a PASSIVE probe: a second
+robot_localization instance ran anchor-free alongside the real one while
+the vehicle flew on the ground-truth-anchored estimate, and the two were
+compared. That answered the heading question it was built for (yaw held to
+0.08 deg mean, 2026-10-02) and nothing more, because a passive observer
+cannot see the feedback that makes anchor-free navigation hard: position
+error changes where the vehicle goes, which changes what the camera sees,
+which changes the map, which changes the estimate.
 
-This probe answers that in one mission instead of a week. A second
-robot_localization instance runs ekf_gpsfree.yaml (odom0 removed, depth
-and IMU-yaw re-enabled) as a PASSIVE OBSERVER, publishing to its own
-topic and owning no transforms. The vehicle still flies on the normal
-anchored estimate, so the mission is unaffected and completes normally.
-We then compare both estimates against the ground truth Stonefish keeps
-publishing regardless.
+odom0 -- the ground-truth anchor -- has now been removed from ekf.yaml
+outright. There is one estimator, the vehicle flies on it, and
+/bluerov2/odometry is no longer an input to anything. Stonefish still
+publishes it, so it remains available as the scoring signal. This script
+is therefore no longer a probe of a hypothetical: it measures the real
+thing while it runs.
 
-WHAT A PASS / FAIL MEANS
-  - Yaw error bounded and non-growing  -> the anchor-free rework is
-    roughly the config change it appears to be; budget ~1 week.
-  - Yaw error growing without bound    -> heading needs a real solution
-    (gyrocompass model, SLAM-yaw rehabilitation, or magnetometer) before
-    anchor-free navigation is viable at all. Budget considerably more,
-    and know it before committing.
+WHAT TO WATCH, in priority order.
 
-SCOPE / CONFOUND, stated honestly: slam_pose_bridge.py aligns its
-SLAM->world transform against /bluerov2/odometry/filtered, i.e. the
-PRIMARY ground-truth-anchored EKF. So pose0 here is indirectly
-GT-informed and this is NOT a clean test of XY accuracy -- XY numbers
-below are a lower bound on the real error and should be read as such.
-Yaw comes from imu0, untouched by that path, so the yaw verdict IS
-valid. That is the question this probe was built to answer.
+  BEARING ERROR is the headline. The mission is flown on
+  current_bearing(), which is wrap(atan2(TY - py, TX - px) - yaw) over the
+  FILTER's own position and heading. Both inputs now drift. Position error
+  alone does not capture this -- an estimate can be metres off along the
+  line to the structure and still point correctly at it, or be close in
+  position and badly mis-aimed.
+
+  YAW ERROR is reported beside it to localise the cause. If bearing fails
+  while yaw holds, the error arrived through position, and the fix is to
+  make bearing structure-relative (multibeam) instead of deriving it from
+  absolute position. If both fail, heading is upstream and goes first.
+
+  POSITION ERROR GROWTH says whether anything is pinning absolute position
+  at all. Unbounded growth means SLAM is contributing nothing and the
+  filter is dead-reckoning on DVL alone -- check whether
+  slam_pose_bridge ever solved an alignment.
+
+What is NOT at risk: range/standoff control. It runs off the multibeam
+minimum return through the controller's own 2-state range EKF and is
+structure-relative already, so collision avoidance does not depend on any
+of the above. The range error reported here is a diagnostic -- how far the
+estimate's notion of distance-to-structure has parted from the truth --
+not a safety number.
 
 Usage (while a mission is running, in its own terminal):
     python3 eval/gpsfree_probe.py [--csv out.csv] [--seconds 600]
@@ -53,6 +64,14 @@ from nav_msgs.msg import Odometry
 # so a heading error of that order is already mission-relevant rather
 # than cosmetic.
 YAW_FAIL_DEG = 12.0
+
+# Turbine centre, matching the controller's TX/TY and eval/task_a_icp.py.
+TURBINE_X, TURBINE_Y = 20.0, 0.0
+
+# Bearing error beyond this means the vehicle is no longer pointed at the
+# face it believes it is inspecting. Same 12 deg rationale as yaw: it is
+# bearing_hold()'s own lock tolerance.
+BEARING_FAIL_DEG = 12.0
 
 # Growth test: compare mean |yaw error| in the last third of the run against
 # the first third. Sustained growth matters more than instantaneous size --
@@ -80,7 +99,6 @@ class GpsFreeProbe(Node):
                          history=HistoryPolicy.KEEP_LAST, depth=10)
 
         self.truth = None          # (x, y, z, yaw) from Stonefish ground truth
-        self.anchored = None       # the normal, GT-anchored EKF
         self.gpsfree = None        # the probe EKF
         self.rows = []
         self.t0 = None
@@ -90,15 +108,17 @@ class GpsFreeProbe(Node):
 
         self.create_subscription(Odometry, '/bluerov2/odometry',
                                  self._truth_cb, qos)
+        # /bluerov2/odometry/filtered IS the anchor-free estimate as of
+        # 2026-10-08 -- odom0 was removed from ekf.yaml, so the main filter
+        # no longer has ground truth in it and the vehicle flies on this.
+        # There is no second estimator to compare against any more.
         self.create_subscription(Odometry, '/bluerov2/odometry/filtered',
-                                 self._anchored_cb, qos)
-        self.create_subscription(Odometry, '/bluerov2/odometry/filtered_gpsfree',
                                  self._gpsfree_cb, qos)
 
         self.csv_path = csv_path
         self.create_timer(0.5, self._sample)
         self.get_logger().info(
-            'GPS-free probe running. Waiting for /bluerov2/odometry/filtered_gpsfree ...')
+            'GPS-free probe running. Waiting for /bluerov2/odometry/filtered ...')
 
     def _unpack(self, m):
         p = m.pose.pose.position
@@ -106,9 +126,6 @@ class GpsFreeProbe(Node):
 
     def _truth_cb(self, m):
         self.truth = self._unpack(m)
-
-    def _anchored_cb(self, m):
-        self.anchored = self._unpack(m)
 
     def _gpsfree_cb(self, m):
         self.gpsfree = self._unpack(m)
@@ -129,20 +146,33 @@ class GpsFreeProbe(Node):
         g_yaw = abs(wrap_deg(math.degrees(gyaw - tyaw)))
         g_z = abs(gz - tz)
 
-        if self.anchored is not None:
-            ax, ay, az, ayaw = self.anchored
-            a_pos = math.hypot(ax - tx, ay - ty)
-            a_yaw = abs(wrap_deg(math.degrees(ayaw - tyaw)))
-        else:
-            a_pos = a_yaw = float('nan')
+        # BEARING ERROR -- the quantity that actually drives the mission.
+        # current_bearing() in the controller is
+        #     wrap(atan2(TY - py, TX - px) - yaw)
+        # computed on the FILTER's (px, py, yaw). With the anchor gone both
+        # of its inputs drift, so this is the control signal most likely to
+        # fail, and position error alone does not show it: an estimate can
+        # be metres off along the line to the structure while still pointing
+        # correctly at it, or close in position and badly mis-aimed.
+        # Reproduced here from the controller's own geometry so the number
+        # means the same thing it does in flight.
+        true_brg = math.atan2(TURBINE_Y - ty, TURBINE_X - tx) - tyaw
+        est_brg = math.atan2(TURBINE_Y - gy, TURBINE_X - gx) - gyaw
+        g_brg = abs(wrap_deg(math.degrees(est_brg - true_brg)))
 
-        self.rows.append((t, g_pos, g_yaw, g_z, a_pos, a_yaw))
+        # Range to the structure, each way: standoff control runs off the
+        # multibeam rather than this estimate, so a growing gap here says
+        # how far the two notions of "where the structure is" have parted.
+        g_rng = abs(math.hypot(TURBINE_X - gx, TURBINE_Y - gy)
+                    - math.hypot(TURBINE_X - tx, TURBINE_Y - ty))
+
+        self.rows.append((t, g_pos, g_yaw, g_z, g_brg, g_rng))
 
         if t - self.last_print >= 15.0:
             self.last_print = t
             self.get_logger().info(
-                f'[{t:6.0f}s] gpsfree: pos_err={g_pos:7.2f}m  yaw_err={g_yaw:6.2f}deg  '
-                f'z_err={g_z:5.2f}m   |   anchored: pos_err={a_pos:5.2f}m yaw_err={a_yaw:5.2f}deg')
+                f'[{t:6.0f}s] pos={g_pos:7.2f}m  yaw={g_yaw:6.2f}deg  '
+                f'z={g_z:5.2f}m  BEARING={g_brg:6.2f}deg  range={g_rng:6.2f}m')
 
         if self.max_seconds and t > self.max_seconds:
             self.get_logger().info('Reached --seconds limit, stopping.')
@@ -151,60 +181,85 @@ class GpsFreeProbe(Node):
     def report(self):
         if not self.rows:
             print('\n' + '=' * 72)
-            print('NO DATA. /bluerov2/odometry/filtered_gpsfree never published.')
-            print('The probe EKF node is probably not running, or crashed at')
-            print('startup. Check the terminal you launched it in.')
+            print('NO DATA. /bluerov2/odometry/filtered never published.')
+            print('The EKF is probably not running, or crashed at startup.')
+            print('Check the launch terminal.')
             print('=' * 72)
             return
 
         if self.csv_path:
             with open(self.csv_path, 'w', newline='') as f:
                 w = csv.writer(f)
-                w.writerow(['t_s', 'gpsfree_pos_err_m', 'gpsfree_yaw_err_deg',
-                            'gpsfree_z_err_m', 'anchored_pos_err_m', 'anchored_yaw_err_deg'])
+                w.writerow(['t_s', 'pos_err_m', 'yaw_err_deg', 'z_err_m',
+                            'bearing_err_deg', 'range_err_m'])
                 w.writerows(self.rows)
 
         n = len(self.rows)
         third = max(1, n // 3)
-        yaw = [r[2] for r in self.rows]
         pos = [r[1] for r in self.rows]
+        yaw = [r[2] for r in self.rows]
         zed = [r[3] for r in self.rows]
+        brg = [r[4] for r in self.rows]
+        rng = [r[5] for r in self.rows]
 
-        first_yaw = sum(yaw[:third]) / third
-        last_yaw = sum(yaw[-third:]) / third
-        growth = (last_yaw / first_yaw) if first_yaw > 1e-6 else float('inf')
+        def growth_of(v):
+            a = sum(v[:third]) / third
+            b = sum(v[-third:]) / third
+            return a, b, (b / a if a > 1e-6 else float('inf'))
+
+        first_yaw, last_yaw, yaw_growth = growth_of(yaw)
+        first_brg, last_brg, brg_growth = growth_of(brg)
+        first_pos, last_pos, pos_growth = growth_of(pos)
         duration = self.rows[-1][0]
 
         print('\n' + '=' * 72)
-        print(f'GPS-FREE PROBE RESULT    ({duration:.0f}s, {n} samples)')
+        print(f'ANCHOR-FREE RUN RESULT    ({duration:.0f}s, {n} samples)')
         print('=' * 72)
-        print(f'  yaw error   : mean {sum(yaw)/n:6.2f}deg   max {max(yaw):6.2f}deg')
-        print(f'                first third {first_yaw:6.2f}deg -> last third {last_yaw:6.2f}deg'
-              f'   (growth x{growth:.2f})')
-        print(f'  position err: mean {sum(pos)/n:6.2f}m     max {max(pos):6.2f}m   [see CONFOUND in docstring]')
-        print(f'  depth err   : mean {sum(zed)/n:6.2f}m     max {max(zed):6.2f}m')
+        print('  All errors are the FLIGHT estimate vs ground truth. Ground truth is')
+        print('  not an input to anything any more -- it is only the scoring signal.')
+        print()
+        print(f'  bearing err : mean {sum(brg)/n:6.2f}deg  max {max(brg):6.2f}deg'
+              f'   {first_brg:5.2f} -> {last_brg:5.2f}  (x{brg_growth:.2f})')
+        print(f'  yaw err     : mean {sum(yaw)/n:6.2f}deg  max {max(yaw):6.2f}deg'
+              f'   {first_yaw:5.2f} -> {last_yaw:5.2f}  (x{yaw_growth:.2f})')
+        print(f'  position err: mean {sum(pos)/n:6.2f}m    max {max(pos):6.2f}m'
+              f'     {first_pos:5.2f} -> {last_pos:5.2f}  (x{pos_growth:.2f})')
+        print(f'  depth err   : mean {sum(zed)/n:6.2f}m    max {max(zed):6.2f}m')
+        print(f'  range err   : mean {sum(rng)/n:6.2f}m    max {max(rng):6.2f}m')
         print('-' * 72)
 
-        bounded = max(yaw) < YAW_FAIL_DEG
-        stable = growth < GROWTH_RATIO_FAIL
+        # Bearing is the headline because it is what the mission flies on.
+        # Yaw is reported beside it because when bearing fails, which of its
+        # two inputs failed -- heading or position -- decides what to fix.
+        brg_ok = max(brg) < BEARING_FAIL_DEG
+        yaw_ok = max(yaw) < YAW_FAIL_DEG
 
-        if bounded and stable:
-            print('  VERDICT: heading HELD.')
-            print(f'    Yaw stayed under {YAW_FAIL_DEG:.0f}deg and is not trending up.')
-            print('    The anchor-free rework looks like the config-scale job it')
-            print('    appears to be. Budget ~1 week; next step is re-pointing')
-            print('    slam_pose_bridge at the GPS-free estimate (see CONFOUND).')
-        elif bounded and not stable:
-            print('  VERDICT: BORDERLINE — bounded so far, but GROWING.')
-            print(f'    Yaw is still under {YAW_FAIL_DEG:.0f}deg but grew x{growth:.2f} across the run.')
-            print('    A longer mission would likely breach it. Re-run with a full')
-            print('    mission before committing; treat the 1-week estimate as optimistic.')
+        if brg_ok:
+            print(f'  VERDICT: bearing HELD (max {max(brg):.1f}deg < {BEARING_FAIL_DEG:.0f}deg).')
+            print('    The vehicle stayed pointed at the face it believed it was')
+            print('    inspecting, with no ground truth in the loop. Structure-relative')
+            print('    control was not needed to survive this mission.')
+        elif yaw_ok:
+            print(f'  VERDICT: bearing FAILED (max {max(brg):.1f}deg), heading did not.')
+            print(f'    Yaw stayed under {YAW_FAIL_DEG:.0f}deg, so the error came through')
+            print('    POSITION, not heading -- bearing is atan2 on the filter xy, and')
+            print('    the xy drifted. Fixing this means making bearing structure-')
+            print('    relative (multibeam) rather than deriving it from absolute')
+            print('    position. That is the expected outcome and the real work.')
         else:
-            print('  VERDICT: heading did NOT hold.')
-            print(f'    Yaw reached {max(yaw):.1f}deg (fail threshold {YAW_FAIL_DEG:.0f}deg).')
-            print('    IMU-only heading is not sufficient here. Anchor-free navigation')
-            print('    needs a real heading solution first — that is a research')
-            print('    problem, not a config change. Do NOT budget one week.')
+            print(f'  VERDICT: bearing AND heading both failed '
+                  f'({max(brg):.1f}deg / {max(yaw):.1f}deg).')
+            print('    Heading is upstream of bearing, so fix heading first -- a')
+            print('    structure-relative bearing will not help while yaw is adrift.')
+            print('    Contradicts the 2026-10-02 probe (0.08deg on IMU alone); suspect')
+            print('    the closed feedback loop rather than the IMU.')
+
+        if pos_growth > GROWTH_RATIO_FAIL:
+            print()
+            print(f'  NOTE: position error grew x{pos_growth:.2f} across the run '
+                  f'({first_pos:.2f}m -> {last_pos:.2f}m).')
+            print('    Unbounded growth means nothing is pinning absolute position --')
+            print('    check whether slam_pose_bridge ever solved an alignment.')
         print('=' * 72)
         if self.csv_path:
             print(f'  per-sample data: {self.csv_path}')
