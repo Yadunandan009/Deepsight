@@ -71,9 +71,10 @@ install(DIRECTORY
 )
 
 # --- ADDED THIS PART ---
-# Install the EKF configuration file
+# Install the EKF configuration files
 install(FILES
   ekf.yaml
+  ekf_gpsfree.yaml
   DESTINATION share/${PROJECT_NAME}
 )
 # -----------------------

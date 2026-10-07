@@ -14,6 +14,7 @@ def generate_launch_description():
 
     # 2. Define File Paths
     ekf_config_path = os.path.join(stonefish_bluerov2_dir, 'ekf.yaml')
+    ekf_gpsfree_config_path = os.path.join(stonefish_bluerov2_dir, 'ekf_gpsfree.yaml')
     rviz_config_path = os.path.join(stonefish_bluerov2_dir, 'rviz', 'bluerov2_conf.rviz')
 
     # 2a. Scenario selection -- was previously hardcoded to bluerov2_turbine.scn
@@ -36,6 +37,29 @@ def generate_launch_description():
         description='Stonefish rendering quality: low|medium|high'
     )
     rendering_quality = LaunchConfiguration('rendering_quality')
+
+    # 2a3. GPS-free chain toggle. Brings up a SECOND estimator with no
+    # ground-truth anchor anywhere in it, alongside the normal one:
+    #
+    #   ORB-SLAM3 -> slam_pose_bridge_gpsfree -> ekf_filter_node_gpsfree
+    #                        ^                            |
+    #                        +----------------------------+
+    #
+    # The bridge aligns against the gps-free EKF's own output rather than
+    # against /bluerov2/odometry (ground truth), which closes the loop. It
+    # bootstraps because the gps-free EKF still has DVL velocity, depth and
+    # IMU, so it publishes a dead-reckoned estimate from t=0 for the bridge
+    # to align against -- without `twist0` the two would deadlock, each
+    # waiting on the other.
+    #
+    # Default false: this is a passive observer and the vehicle keeps flying
+    # on the anchored estimate, but it is extra load and extra log noise on
+    # runs that do not want it.
+    gpsfree_arg = DeclareLaunchArgument(
+        'gpsfree', default_value='false',
+        description='Also run the anchor-free estimator (bridge + EKF) alongside the normal one'
+    )
+    gpsfree = LaunchConfiguration('gpsfree')
 
     # 2b. RViz toggle -- for unattended batch evaluation runs, popping up a
     # GUI window per trial repeatedly steals desktop focus for no benefit.
@@ -133,6 +157,33 @@ def generate_launch_description():
         }],
     )
 
+    # 5d. GPS-free chain (see `gpsfree` launch argument above). The node
+    # name MUST stay ekf_filter_node_gpsfree -- it is the top-level key in
+    # ekf_gpsfree.yaml, and robot_localization silently falls back to
+    # defaults if the name and the key disagree, which looks like a working
+    # filter that is fusing nothing.
+    slam_pose_bridge_gpsfree = Node(
+        package='stonefish_bluerov2',
+        executable='slam_pose_bridge.py',
+        name='slam_pose_bridge_gpsfree',
+        output='screen',
+        condition=IfCondition(gpsfree),
+        parameters=[{
+            'reference_odom': '/bluerov2/odometry/filtered_gpsfree',
+            'output_topic': '/bluerov2/robot_pose_slam_ekf_gpsfree',
+        }],
+    )
+
+    ekf_node_gpsfree = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node_gpsfree',
+        output='screen',
+        condition=IfCondition(gpsfree),
+        parameters=[ekf_gpsfree_config_path],
+        remappings=[('odometry/filtered', '/bluerov2/odometry/filtered_gpsfree')]
+    )
+
     # 6. EKF Filter
     ekf_node = Node(
         package='robot_localization',
@@ -203,6 +254,7 @@ def generate_launch_description():
     return LaunchDescription([
         scenario_arg,
         quality_arg,
+        gpsfree_arg,
         rviz_arg,
         launch_include,
         ardusim_patch,
@@ -213,6 +265,8 @@ def generate_launch_description():
         image_enhancement_left,
         image_enhancement_right,
         ekf_node,
+        slam_pose_bridge_gpsfree,
+        ekf_node_gpsfree,
         rviz_node,
         static_tf,
         ned_to_enu_tf,
