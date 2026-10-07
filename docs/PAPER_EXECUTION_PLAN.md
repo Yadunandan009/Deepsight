@@ -17,13 +17,15 @@ Checked against disk on 2026-10-01, not assumed from prior notes.
 | Buggy-matrix ablation (#9) | **Not run** — zero `buggy_*` rows exist | `results.jsonl` has only `buggy_alloc=false` rows |
 | Ablation switch mechanism | Working (`BLUEROV2_BUGGY_ALLOC=1` env flag) | `bluerov2_autonomous_controller.py`, verified live |
 | Trial harness | Working, hardened | `eval/run_trial.py` (collision guard + stdout capture, both added 2026-09-23/24) |
-| Task A — ICP false-loop-closure verification | **Done**, written up with figures | `docs/task_a/TASK_A_ICP_LOOP_CLOSURE_WRITEUP.md` |
+| Task A — ICP false-loop-closure verification | **Re-run 2026-10-07 under corrected calibration; effect revised from 0.13 to ~0.02.** Write-up not yet updated | `docs/task_a/`, `eval/task_a_reextract.py`, `eval/task_a_out/` |
 | Task #15 — SLAM map fragmentation | **Root-caused + written up**; fix not implemented | `docs/TASK_15_SLAM_MAP_FRAGMENTATION_WRITEUP.md` |
 | Task #16 — EKF yaw instability | **Fixed + bag-verified** | missing `base_link`↔`imu_filter` TF; `bluerov2_sim.py` |
 | Literature base | Exists, ~40 refs, unverified | `~/Desktop/RESEARCH_DIRECTIONS_HANDOFF.md` §351-505 — **not in repo** |
 | Structure symmetry index | **Done**, validated against sonar to ~1 cm | `eval/structure_symmetry.py` |
 | Symmetry variant ladder | **Done**, 5 levels, index 1.000 → 0.717 | `eval/make_variants.py`, `eval/symmetry_ladder.csv` |
-| Symmetry failure axis | **Not measured** — probe pending | — |
+| Symmetry failure axis | **Chosen and measured 2026-10-07**: 90°-periodicity of alignment re-locks. L0 vs L4 matched config, permutation p = 0.0087 | `eval/symmetry_doseresponse.py` |
+| Stereo calibration | **Fixed 2026-10-04** (`fx` 457.1 → 417.03); confirmed in map geometry against sonar to 0.08-0.15 m on a 0.74 m predicted effect | `slam_params/bluerov2_stereo.yaml`, c34769e |
+| Anchor-free closed loop | **Config complete, never run end to end** — `pose0`/`pose1`/`imu0`/`twist0` wired, `odom0` removed | `src/stonefish_bluerov2/ekf_gpsfree.yaml` |
 | GPS-free heading probe | **Passed** 2026-10-02: yaw 0.08° mean, no growth | `eval/gpsfree_probe.py` |
 | Depth conversion | **Fixed and verified**, 0.738 m → 0.013 m error | `depth_bridge.py`, `eval/verify_depth.py` |
 | v7 baseline / bearing metrics | **Dropped** with the v7-vs-v8 comparison (§1.2); files remain on disk, unused | `eval/bearing_stability_metrics.py` |
@@ -38,25 +40,51 @@ Phase 1 work.
 
 ## 1. The contribution — what this paper actually argues
 
-**Decided 2026-10-03.** The arc is:
+**Reframed 2026-10-07.** The previous framing made ORB-SLAM3 the subject: *place
+recognition fails more on symmetric structures*. That is a benchmark of third-party
+software. The failure mode — perceptual aliasing — is textbook, the obvious reviewer
+reply is *"use different place recognition, or switch loop closure off"*, and it does not
+survive the question of why this is an underwater-inspection paper rather than a SLAM
+paper. The objection was raised directly and it is correct.
 
-> **GPS-denied operation is the setting** that makes SLAM load-bearing. **Structural
-> self-similarity is the finding**: jacket faces are geometrically interchangeable, and
-> place-recognition failure scales with how interchangeable they are. **A cross-modal
-> gate is the method half**, if time allows — and a negative result there is still a
-> result.
+What this project has that a SLAM paper does not is **the CAD model of the asset**. An
+inspection vehicle always knows what it is inspecting; generic SLAM throws that prior
+away. The arc now:
 
-Without the GPS-denied setting a reviewer asks why ORB-SLAM3 is in the paper at all,
-because with the ground-truth anchor in place SLAM drives nothing. Without the
-dose-response the symmetry work is a single observation on a single structure, which is
-a problem statement, not a finding.
+> **Offshore jackets are built with 4-fold symmetry for load reasons**, which makes their
+> faces geometrically interchangeable — a property of the asset class, computable from the
+> drawing before the vehicle enters the water. **Any appearance- or geometry-based place
+> recognition must therefore alias between faces**, and it does so with a specific
+> geometric signature: the SLAM→world alignment re-locks at multiples of 90°. **The method
+> is to exploit the known symmetry rather than be defeated by it** — reject a loop closure
+> whose correction corresponds to a symmetry operation of the structure, arbitrated by a
+> modality that is blind to appearance (DVL dead reckoning plus depth). **The symmetry
+> index predicts how hard that arbitration has to work.**
+
+ORB-SLAM3 is a *component* here, not the object of study. It is the off-the-shelf stereo
+front end anyone would use; the claim is not that it fails but that its failure is
+**predictable from the asset's geometry** and **correctable with a sensor that does not
+care what the structure looks like**.
+
+Each piece is now answerable to a reviewer asking "why this":
+
+- **Why a jacket structure.** Symmetric by engineering design, not by coincidence, so the
+  aliasing is systematic across the whole asset class rather than a quirk of one scene.
+- **Why GPS-denied.** There is no position fix underwater, and inspection requires
+  station-keeping at a fixed standoff, so a 90° place-recognition error is a collision
+  risk, not a mapping artefact.
+- **Why this controller.** Bearing-hold on each face is what manufactures the
+  near-identical viewpoints — the mission profile itself maximises the aliasing risk.
+- **Why ORB-SLAM3.** It is the standard open stereo SLAM with an appearance-based loop
+  closer. Nothing in the claim depends on it beyond those two properties, which is the
+  point: the result should transfer to any system with them.
 
 | # | Result | Status |
 |---|---|---|
-| R1 | Jacket faces are geometrically interchangeable (ICP fitness 1.000, RMSE ~0.11 m), measured independently from sonar and from CAD | **Done** |
-| R2 | A suspected false loop closure, confirmed against independent geometry | **Done** (Task A) |
-| R3 | Place-recognition failure rate scales with a computable a-priori symmetry index | **In progress** — ladder built, failure axis not yet measured |
-| R4 | Gating loop closure on an independent modality does / does not mitigate it | Optional method half |
+| R1 | Jacket faces are geometrically interchangeable (ICP fitness 1.000, RMSE ~0.11 m), measured independently from sonar and from CAD | **Done** — algorithm-free and calibration-independent, so it is the foundation the rest rests on |
+| R2 | A face's map points show no preference for their own geometry over the adjacent face's | **Done, revised down 2026-10-07** — effect is ~2 points of inlier fraction, not the 0.13 originally reported; see §1.3 |
+| R3 | The aliasing carries a 90°-periodic signature whose strength scales with the a-priori symmetry index | **First real evidence 2026-10-07** — L0 vs L4 at matched configuration, permutation p = 0.0087; see WS-B |
+| R4 | A symmetry-aware cross-modal gate suppresses the aliased correction | **Promoted: this is now the method half, not optional.** Without it the paper reverts to characterising ORB-SLAM3 |
 
 ### 1.1 What counts as a result here, and what does not
 
@@ -98,6 +126,44 @@ metrics extractor and statistics stay. The comparison does not appear in the man
   not a contribution. The three non-tautological ablations (yaw guard, crab throttle,
   anti-windup) would have been informative, but cost ~20 h of simulation for a secondary
   result that does not survive the "why does this matter" question.
+
+### 1.3 What the Task A re-run changed (2026-10-07)
+
+Task A was re-run under the corrected focal length. Two things came out of it, and the
+second matters more than the first.
+
+**The calibration error is confirmed in the map geometry itself.** `fx` was too large by
+457.1/417.03 = 1.0961, which inflates every triangulated range by 9.6% and so pulls
+surface points toward the structure's axis by a predictable amount. Measured against the
+sonar reference — which never depended on `fx` — the pre-fix map sits 8.62 m and 8.71 m
+from the axis where the prediction is 8.54 m and 8.55 m: a parameter-free prediction
+confirmed to 0.08-0.15 m on a 0.74 m effect. This is a far better validation of the fix
+than the bridge-rejection counts, and it belongs in the methods section.
+
+**R2's original effect size was an artefact of an invalid comparison.** The write-up's
+headline was a 0.13 gap between the control (0.294) and the two face-2 rows (0.165,
+0.158). But fitness is an inlier *fraction of the source cloud*, so those three rows have
+different denominators — the comparison the figure invited is not one the statistic
+supports. Re-run as a proper paired test (same source cloud, swap only the reference):
+
+| run | face 1 prefers own | face 2 prefers own |
+|---|---|---|
+| original, fx = 457.1 | **+0.019** [+0.015, +0.023] | −0.008 [−0.014, −0.002] |
+| corrected fx, FAST 3/1 | +0.001 [−0.008, +0.008] | −0.007 [−0.016, +0.001] |
+| corrected fx, FAST 20/7 | **+0.025** [+0.012, +0.037] | −0.004 [−0.012, +0.004] |
+
+Face 2 fits the adjacent face better in all three runs; face 1 prefers its own in two of
+three. The asymmetry is real and replicates in direction, but it is a ~2-point effect.
+Report it at that size.
+
+**The methodological lesson, which now applies to every comparison in this project:**
+comparing two independently-resampled estimates by whether their error bars overlap tests
+the wrong thing, and inflated a 2-point effect into an apparent 13-point one. Where the
+two quantities share a source, resample once and score both — the statistic is the
+distribution of the *difference*. The same error in its other guise — inferring that two
+groups differ because one is significant and the other is not — is why WS-B's
+dose-response is tested by permutation on the difference rather than by comparing two
+p-values.
 
 ## 2. Workstreams
 
@@ -168,9 +234,15 @@ the symmetry study invisibly. That is a private benefit, not a published one.
 
 ---
 
-### WS-B — Symmetry dose-response (R3) — **the main contribution**
-**Status:** measurement instrument and variant ladder done 2026-10-03; failure axis not
-yet measured. **Effort:** ~7 h simulation plus analysis, once the probe justifies it.
+### WS-B — Symmetry dose-response (R3) — **the stress axis for the method**
+**Status:** instrument and ladder done 2026-10-03; **failure axis chosen and first
+evidence obtained 2026-10-07** from logs already on disk. **Effort remaining:** ~6 h
+simulation to fill the ladder, but *after* WS-C exists (see §4).
+
+**No longer the whole contribution.** Under the §1 reframe this workstream is not the
+paper's claim — it is the axis on which the WS-C gate is shown to work and to degrade
+gracefully. On its own it characterises ORB-SLAM3; as the stress axis for a method it
+characterises the method.
 
 **The instrument.** `eval/structure_symmetry.py` computes face-to-face ICP similarity
 from the scenario's CAD. On the stock turbine all six face pairs register at fitness
@@ -201,11 +273,37 @@ surface at r = 8.0-9.9 m; and drums bolted to a turbine represent nothing that e
 offshore regardless of placement. The current hardware — risers, pipeline, sacrificial
 anodes — is what actually differs between faces of a real jacket.
 
-**The failure axis is not yet chosen.** Candidates, all from existing tooling: re-aligns
-per mission (`eval/slam_align_harvest.py`), map-fragmentation events (detected in
-`slam_pose_bridge`), tracking-loss episodes (ORB-SLAM3 console). Re-aligns are the most
-direct, but a stock mission yields only 2-4, so if L4 drops to 0-1 the levels may not
-separate without many missions each.
+**The failure axis, chosen and measured.** The response variable is **where** the
+SLAM→world alignment re-locks, not how often. That distinction is the reframe in
+miniature: a rate is a performance number about one implementation, whereas 90°
+periodicity is a prediction from the asset's geometry that any appearance-based place
+recognition must obey. Measured by `eval/symmetry_doseresponse.py` from the launch logs:
+
+| level | index | n jumps | mean &#124;residual&#124; vs *n*·90° | Rayleigh *R* | *p* |
+|---|---|---|---|---|---|
+| L0 | 1.000 | 12 | 12.0° | 0.610 | 0.0088 |
+| L4 | 0.717 | 11 | 25.6° | 0.254 | 0.50 |
+
+Uniformly random re-locks average 22.5°. Both runs share an identical configuration
+(`fx` = 457.1, FAST 3/1), verified by reading each run's ORB-SLAM3 startup block rather
+than inferred from timestamps. The difference is tested directly, by permutation on the
+pooled jumps (200 000 resamples, direction pre-specified): **Δmean|residual| = +13.5°,
+p = 0.0087**; ΔR = +0.356, p = 0.047.
+
+**The rate is not the finding.** L0 re-aligns 13 times and L4 twelve — outfitting the
+structure did not make the alignment more stable. It changed *where* the alignment
+landed: onto a symmetry-equivalent face, or arbitrarily. A paper that reported only the
+rate would have found nothing here.
+
+**L0 clustering is robust to configuration**, which matters because the focal-length fix
+is otherwise a confound: L0 clusters at p = 0.0088 (`fx` 457.1, FAST 3/1), p = 0.0213
+(`fx` 417.03, FAST 20/7), and at 8.1° mean residual in the third run (n = 7, below the
+Rayleigh floor). Three configurations, same signature.
+
+**What is still missing:** L1-L3 entirely, and replication at each level. Two levels give
+a direction, not a curve. The config guard in `symmetry_doseresponse.py` refuses to pool
+across calibrations by default — the 2026-10-04 fix alone moved re-align counts 13→8,
+the same size as the effect being measured, and the L4 run predates it.
 
 **Probe before committing.** Two missions, L0 and L4, ~36 minutes. Clear separation
 justifies the full 5 x N batch; no separation means learning that for 36 minutes rather
@@ -221,9 +319,31 @@ predicts failure would itself be a result** worth more than the curve.
 
 ---
 
-### WS-C — Cross-modal loop-closure gate (R4) — optional method half
-**Status:** not started; recommended by TASK_15 but deliberately left open there.
-**Effort:** moderate; only attempt once WS-B lands.
+### WS-C — Symmetry-aware cross-modal gate (R4) — **the method, and now the contribution**
+**Status:** not started. Promoted from optional 2026-10-07: under the §1 reframe this is
+what makes the paper a method rather than a characterisation of someone else's SLAM.
+**Effort:** moderate. Do this BEFORE filling the ladder, not after — see §4.
+
+**The gate has two tiers, and only the second is research.**
+
+*Tier 1 — reject the full 90° snap.* A 90° re-lock at 9-17 m radius displaces the pose
+by 13-24 m. DVL velocity noise is 0.0015 m/s, so dead reckoning holds to roughly
+0.5-2 m over a mission; a 13 m jump is trivially rejected. This should simply be shipped
+— it is good engineering, and by §1.1's own rule it is not paper material on its own.
+
+*Tier 2 — the sub-threshold case, which is the actual contribution.* The damaging
+failures are not the clean snaps but the slow slides already fought in `c4343c0`:
+10-14° per 5 s refit, each step inside any single-step outlier gate, compounding past
+100°. Those sit under a fixed distance threshold. A CAD-derived symmetry prior can
+reject them because it knows *which* rotations are the structure's symmetry operations,
+and a drift threshold does not. That is the claim worth making: **prior-informed
+place-recognition gating using the inspected asset's own symmetry group.**
+
+**The sensor stack is already wired** — `ekf_gpsfree.yaml` fuses `pose0` (SLAM→bridge,
+closed loop, no ground truth), `pose1` (depth, verified to 0.013 m), `imu0` (yaw, 0.08°
+mean without the anchor) and `twist0` (`/bluerov2/dvl_twist`, 5 Hz, via `dvl_bridge.py`),
+with `odom0` — the ground-truth anchor — removed. It has never been run end to end.
+That is one session, not weeks.
 
 Reject a proposed visual loop closure when independent sonar geometry disagrees, and
 measure map fragmentation before and after. Turns the paper from "here is a problem" into
@@ -295,30 +415,53 @@ The protocol writes "(p<...)" without naming a test. Fill that in deliberately, 
 
 ## 4. Sequencing and critical path
 
+**Reordered 2026-10-07.** The previous ordering said WS-B first, "it is the contribution;
+the rework is the setting." Both halves of that are now wrong: WS-C is the contribution,
+and doing WS-B first would waste the batch.
+
 ```
 WS-0 GPS-free probe  [heading PASSED 2026-10-02]
         |
-        +--> anchor-free rework (the setting)  ~1 week  --+
-        |                                                 |
-WS-B symmetry dose-response  [ladder done]                |
-        |                                                 +--> WS-F --> write-up
-        +--> L0/L4 probe (36 min) --> 5 x N batch (~7 h)  |
-                      |                                   |
-                      +--> WS-C gate, if time ------------+
-WS-D, WS-E  (no simulation, fully parallel) --------------+
+        v
+anchor-free closed loop  (ekf_gpsfree end to end, never yet run)   ~1 session
+        |
+        v
+WS-C  tier 1: reject the 90 deg snap via DVL + depth                ~1 session
+        |     tier 2: CAD symmetry-group prior  <-- the contribution
+        v
+WS-B  fill the ladder, L0-L4 x 3, frozen config                     ~6 h sim
+        |                                                            |
+        +--> WS-F --> write-up <------------------------------------+
+WS-D, WS-E, R2 write-up  (no simulation, fully parallel) -----------+
 ```
 
-**Critical path is WS-B's failure axis.** Everything else is either done, optional, or
-parallelisable. The L0/L4 probe gates the 7-hour batch and should always run first.
+**Why WS-B must come last.** Its response variable — where the alignment re-locks — is
+measured *through* the bridge and the EKF. The anchor-free rework replaces what feeds
+both, and WS-C changes how re-locks are accepted at all. Collecting 15 missions before
+those exist voids all 15. This is not hypothetical: it is exactly what happened to the L4
+run at 1/15th the scale, when the focal-length fix landed between L4 and L0 and left the
+two endpoints on different calibrations.
 
-**WS-D and WS-E need no machine time** and should absorb any period where the simulator
-is busy — which, given the batch sizes here, is most of them.
+**Freeze discipline.** Before the first ladder mission, freeze
+`slam_params/bluerov2_stereo.yaml`, the gate parameters, and `eval/make_variants.py`, and
+do not touch any of them until all runs are recorded. Every config edit mid-collection
+costs the runs already banked. `eval/symmetry_doseresponse.py` enforces this after the
+fact by refusing to pool across configurations, but that only detects the loss; it cannot
+undo it.
 
-**The anchor-free rework and WS-B are independent** and can proceed in either order. Doing
-the rework first makes the dose-response more meaningful (SLAM actually drives the
-vehicle, so place-recognition failure has mission-level consequences rather than just
-corrupting telemetry). Doing WS-B first de-risks the contribution. If time is tight,
-WS-B first — it is the contribution; the rework is the setting.
+**Critical path is now the anchor-free closed loop**, because WS-C depends on it and WS-B
+depends on WS-C. It is also the single largest unknown: the bridge's thresholds (5 m
+reject, 40-rejection stale, 15° refit cap) were all tuned against a ground-truth-anchored
+reference, and the 2026-10-04 log shows the alignment never settling even *with* the
+anchor present — eight re-locks, stepping ~90° each time. Remove the anchor and that
+instability feeds back into the filter the bridge compares itself against. Watch the first
+run live rather than batching it.
+
+**What is already bankable and needs no machine time:** R1, the R2 revision (numbers in
+hand), the two-level dose-response result, WS-D, WS-E. These should absorb every period
+the simulator is busy.
+
+---
 
 ## 5. Risk register
 
@@ -349,18 +492,27 @@ Task #15's loop-closure/merge gate is likewise future work (§WS-D).
 
 ## 7. Immediate next actions
 
-1. **L0 / L4 probe missions** (~36 min) — gates the 7-hour batch. Needs ORB-SLAM3 running,
-   so it is a manual run rather than `run_trial.py`, which does not launch the container.
-2. **Choose the failure axis** from the probe: re-aligns per mission, map-fragmentation
-   events, or tracking-loss episodes.
-3. **If the probe separates**, run 5 levels x N missions and fit failure against index.
-   **If it does not**, test the appearance-side index before concluding the effect is
-   absent (see WS-B's standing risk).
-4. **Parallel, any time, no machine needed:** move the literature base into
-   `docs/literature/` and verify the DOIs (WS-E); draft the limitations section (WS-F)
-   *before* the results are final, so it constrains what they are allowed to claim.
-5. **Still open from earlier:** the anchor-free rework's first full run has not happened.
-   `slam_pose_bridge` is parameterised and `ekf_gpsfree.yaml` points at it, but the
-   bridge's thresholds (5 m reject, 40-rejection stale, 15 deg refit cap) were tuned
-   against a ground-truth-anchored reference and may not survive the feedback loop. Watch
-   that run live rather than batching it.
+**Done 2026-10-07** (items 1-2 of the previous list, from logs already on disk rather
+than new missions): the failure axis is chosen, and L0 vs L4 at matched configuration
+gives the first dose-response evidence (permutation p = 0.0087). The two probe missions
+that were supposed to gate the batch turned out to have already been flown on 2026-10-03.
+
+1. **Run `ekf_gpsfree` end to end** — the anchor-free closed loop, never once executed.
+   Needs the simulator and ORB-SLAM3, so it is a manual run; watch it live. This is now
+   the critical path, because WS-C depends on it and WS-B depends on WS-C.
+2. **WS-C tier 1** — reject a re-lock whose correction is a near-90° rotation, arbitrated
+   by DVL dead reckoning plus depth. Expected to be easy; ship it as engineering.
+3. **WS-C tier 2 — the contribution.** Gate on the structure's CAD-derived symmetry group
+   so the slow sub-threshold slides (10-14° per 5 s, `c4343c0`) are rejected too, which a
+   fixed distance threshold cannot do.
+4. **Then WS-B**, frozen config, L0-L4 × 3. Not before — see §4.
+5. **Parallel, no machine needed:** update the Task A write-up to §1.3's numbers and fix
+   its stale point counts (it reports 45,884/37,651 new points; the committed code gives
+   51,104/43,638 before outlier rejection and 41,106/35,293 after, so the quoted figures
+   match neither); regenerate its figures with `eval/fig_task_a.py`, since no figure
+   script was ever committed for the originals; move the literature base into
+   `docs/literature/` and verify DOIs (WS-E); draft WS-F early.
+6. **Housekeeping:** delete the stale `history-fix-20260922` branch and `refs/original/`
+   backup refs. The L0 bags live on the `more space` drive, currently unmounted — the
+   extracted `.npz` files are in `plots/`, so the analyses are reproducible without it,
+   but the raw bags are not.

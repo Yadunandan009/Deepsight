@@ -30,10 +30,22 @@ Method:
      face1-new vs face1-ref (control), face2-new vs face2-ref (sanity).
 """
 import math
+import os
+import sys
+
 import numpy as np
 from scipy.spatial import cKDTree
 
-D = np.load("/home/yadunandan/ros2_ws/plots/task_a_topics.npz", allow_pickle=True)
+# Which extraction to analyse. Default is the original August mission, so
+# the committed numbers in the write-up stay reproducible by running this
+# with no arguments; pass a path to re-run the same analysis against a
+# different bag's extraction (e.g. the post-calibration-fix re-run, whose
+# npz is produced by eval/task_a_reextract.py).
+NPZ = sys.argv[1] if len(sys.argv) > 1 else \
+    "/home/yadunandan/ros2_ws/plots/task_a_topics.npz"
+print(f"input: {NPZ}\n")
+
+D = np.load(NPZ, allow_pickle=True)
 odom_t, odom_xyz, odom_yaw = D['odom_t'], D['odom_xyz'], D['odom_yaw']
 slam_t, slam_xyz, slam_yaw = D['slam_t'], D['slam_xyz'], D['slam_yaw']
 mapc_t, mapc_pts = D['mapc_t'], D['mapc_pts']
@@ -182,6 +194,42 @@ def icp_bootstrap(src, dst, n_boot=50, frac=0.8, seed=0):
     return fits.mean(), fits.std(), rmses.mean(), rmses.std()
 
 
+def icp_bootstrap_paired(src, dst_a, dst_b, n_boot=50, frac=0.8, seed=0):
+    """Bootstrap `src` ONCE per resample and register that same resample
+    against both references.
+
+    Why paired: the question is whether a face's own geometry fits better
+    than the other face's, and both fits are measured on the same source
+    cloud. Comparing two independently-resampled runs by whether their
+    +-1 SD error bars overlap (what the first pass did) throws away that
+    pairing and tests the wrong thing -- it asks whether the two means are
+    separable given each one's own sampling spread, when what matters is
+    the spread of their DIFFERENCE. Resampling once and scoring both
+    references on it gives that difference directly.
+
+    Also note the asymmetry this makes visible: fitness is an inlier
+    FRACTION of the source cloud, so it is comparable across two
+    references scored on one source (the denominator is identical), but
+    not across two different source clouds of different size and density.
+    That is why the control row of the original 3-row table cannot be read
+    as a numerical benchmark for the other rows, and why the full 2x2 is
+    needed instead.
+
+    Returns (fit_a, fit_b, rmse_a, rmse_b) as length-n_boot arrays.
+    Uses the same seed/resample indices as icp_bootstrap, so the per-pair
+    means reproduce it exactly.
+    """
+    rng = np.random.default_rng(seed)
+    n = max(10, int(len(src) * frac))
+    fa, fb, ra, rb = [], [], [], []
+    for _ in range(n_boot):
+        idx = rng.choice(len(src), size=n, replace=True)
+        s = src[idx]
+        f, r = icp_point_to_point(s, dst_a); fa.append(f); ra.append(r)
+        f, r = icp_point_to_point(s, dst_b); fb.append(f); rb.append(r)
+    return (np.array(fa), np.array(fb), np.array(ra), np.array(rb))
+
+
 def icp_point_to_point(src, dst, max_iters=50, tol=1e-5, inlier_thresh=1.0):
     """Minimal point-to-point ICP (3D). Returns fitness, rmse."""
     if len(src) == 0 or len(dst) < 10:
@@ -291,15 +339,72 @@ print(f"\nreference cloud sizes (frustum-tightened): "
       f"face1_ref={len(ref_face1)} (was {len(face_reference(1))})  "
       f"face2_ref={len(ref_face2)} (was {len(face_reference(2))})")
 
-print("\n=== ICP results (bootstrap, n=50, 80% resample) ===")
-results = []
-fm, fs, rm, rs = icp_bootstrap(new1_world, ref_face1)
-results.append(("face1-new vs face1-ref (CONTROL)", fm, fs, rm, rs))
-fm, fs, rm, rs = icp_bootstrap(new2_world, ref_face1)
-results.append(("face2-new vs face1-ref (SUSPECTED FALSE MATCH)", fm, fs, rm, rs))
-fm, fs, rm, rs = icp_bootstrap(new2_world, ref_face2)
-results.append(("face2-new vs face2-ref (SANITY: own geometry)", fm, fs, rm, rs))
+# Optional: dump the re-anchored world-frame clouds and the references so
+# spatial diagnostics run against exactly what ICP was fed, rather than a
+# re-implementation of these steps that could silently drift from them.
+if os.environ.get("TASK_A_DUMP"):
+    np.savez(os.environ["TASK_A_DUMP"],
+             new1_world=new1_world, new2_world=new2_world,
+             ref_face1=ref_face1, ref_face2=ref_face2,
+             theta1=theta1, theta2=theta2,
+             f1=(f1_start, f1_end), f2=(f2_start, f2_end))
+    print(f"dumped clouds to {os.environ['TASK_A_DUMP']}")
+    if os.environ.get("TASK_A_DUMP_ONLY"):
+        sys.exit(0)
 
-print(f"{'Pair':50s} {'Fitness':>16s} {'RMSE(m)':>16s}")
-for name, fm, fs, rm, rs in results:
-    print(f"{name:50s} {fm:6.3f} +- {fs:5.3f}  {rm:6.3f} +- {rs:5.3f}")
+print("\n=== ICP results (bootstrap, n=50, 80% resample) ===")
+
+# One paired bootstrap per SOURCE cloud, each resample scored against both
+# references. The three rows the first pass reported are recovered from
+# these arrays (same seed, same resample indices, so the means are
+# identical), and the fourth cell -- face1-new vs face2-ref -- which the
+# first pass never ran, completes the 2x2.
+f1_own, f1_other, r1_own, r1_other = icp_bootstrap_paired(
+    new1_world, ref_face1, ref_face2)
+f2_other, f2_own, r2_other, r2_own = icp_bootstrap_paired(
+    new2_world, ref_face1, ref_face2)
+
+
+def ms(a):
+    return a.mean(), a.std()
+
+
+rows = [
+    ("face1-new vs face1-ref (own)",   f1_own,   r1_own),
+    ("face1-new vs face2-ref (other)", f1_other, r1_other),
+    ("face2-new vs face1-ref (other)", f2_other, r2_other),
+    ("face2-new vs face2-ref (own)",   f2_own,   r2_own),
+]
+print(f"{'Pair':40s} {'Fitness':>16s} {'RMSE(m)':>16s}")
+for name, f, r in rows:
+    fm, fs = ms(f); rm, rs = ms(r)
+    print(f"{name:40s} {fm:6.3f} +- {fs:5.3f}  {rm:6.3f} +- {rs:5.3f}")
+
+# ── The actual hypothesis test: within one source cloud, does its own
+# reference fit better than the other face's? Paired across resamples, so
+# the statistic is the difference itself, not two overlapping error bars.
+print("\n=== Paired within-source test: own-ref fitness minus other-ref ===")
+print(f"{'Source':12s} {'d fitness':>22s} {'95% CI':>22s} {'P(own>other)':>14s}")
+for name, own, other in [("face1-new", f1_own, f1_other),
+                          ("face2-new", f2_own, f2_other)]:
+    d = own - other
+    lo, hi = np.percentile(d, [2.5, 97.5])
+    print(f"{name:12s} {d.mean():+10.4f} +- {d.std():7.4f} "
+          f"  [{lo:+8.4f}, {hi:+8.4f}] {np.mean(d > 0)*100:12.0f}%")
+# Persist the bootstrap arrays so the figure is built from exactly these
+# runs rather than by re-running the analysis or scraping stdout.
+if os.environ.get("TASK_A_RESULTS"):
+    np.savez(os.environ["TASK_A_RESULTS"],
+             f1_own=f1_own, f1_other=f1_other,
+             f2_own=f2_own, f2_other=f2_other,
+             r1_own=r1_own, r1_other=r1_other,
+             r2_own=r2_own, r2_other=r2_other,
+             n1=len(new1_world), n2=len(new2_world),
+             n_ref1=len(ref_face1), n_ref2=len(ref_face2),
+             f1_win=(f1_start, f1_end), f2_win=(f2_start, f2_end))
+    print(f"\nsaved bootstrap arrays to {os.environ['TASK_A_RESULTS']}")
+
+print("\nA face that was mapped as itself should show d fitness > 0 with a CI")
+print("clear of zero. A CI spanning zero means its own geometry fits no")
+print("better than the other face's -- which is the signature the suspected")
+print("false loop closure would leave.")

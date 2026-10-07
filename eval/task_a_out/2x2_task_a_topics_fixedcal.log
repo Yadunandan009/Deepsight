@@ -1,0 +1,34 @@
+input: plots/task_a_topics_fixedcal.npz
+
+=== Face windows ===
+  face1: t=[289.4, 455.5]  dwell=166.0s
+  face2: t=[522.1, 688.2]  dwell=166.1s
+
+=== New map points added during each face's dwell ===
+  face1: before(t=288.8)=105823 pts, after(t=458.8)=167109 pts, NEW=37547
+  face2: before(t=518.8)=133313 pts, after(t=688.8)=179848 pts, NEW=27904
+
+=== Per-point re-anchoring (nearest-trajectory-sample local heading offset) ===
+  face1: n_pts=31027  heading-offset mean=3.0deg std=132.3deg  min=-174.8 max=168.0
+  face2: n_pts=19344  heading-offset mean=-5.7deg std=52.1deg  min=-54.3 max=68.6
+
+reference cloud sizes (frustum-tightened): face1_ref=84960 (was 84960)  face2_ref=88692 (was 88692)
+
+=== ICP results (bootstrap, n=50, 80% resample) ===
+Pair                                              Fitness          RMSE(m)
+face1-new vs face1-ref (own)              0.146 +- 0.002   0.582 +- 0.007
+face1-new vs face2-ref (other)            0.145 +- 0.004   0.650 +- 0.013
+face2-new vs face1-ref (other)            0.143 +- 0.004   0.590 +- 0.008
+face2-new vs face2-ref (own)              0.135 +- 0.005   0.606 +- 0.013
+
+=== Paired within-source test: own-ref fitness minus other-ref ===
+Source                    d fitness                 95% CI   P(own>other)
+face1-new       +0.0009 +-  0.0042   [ -0.0078,  +0.0077]           60%
+face2-new       -0.0070 +-  0.0044   [ -0.0156,  +0.0007]            6%
+
+saved bootstrap arrays to eval/task_a_out/boot_task_a_topics_fixedcal.npz
+
+A face that was mapped as itself should show d fitness > 0 with a CI
+clear of zero. A CI spanning zero means its own geometry fits no
+better than the other face's -- which is the signature the suspected
+false loop closure would leave.
