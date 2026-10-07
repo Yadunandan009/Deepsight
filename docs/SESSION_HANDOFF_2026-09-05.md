@@ -69,6 +69,31 @@ This also matters for Task 15: every prior SLAM-crash observation in Part 1 abov
 
 ## Part 2 — Task A: Independent Geometric Verification of a Suspected False Loop Closure (ICP)
 
+> **SUPERSEDED — correction added 2026-10-08.** Everything in Part 2 below is the text as
+> written on 2026-09-05 and is kept as a dated record, not as current findings. Two of its
+> claims have since been retracted, and the canonical version is
+> [`docs/task_a/TASK_A_ICP_LOOP_CLOSURE_WRITEUP.md`](task_a/TASK_A_ICP_LOOP_CLOSURE_WRITEUP.md).
+>
+> 1. **The headline effect was overstated roughly sixfold.** ICP fitness is an inlier
+>    fraction *of the source cloud*, so the three rows in §3 below have different
+>    denominators and the "gap of about 0.13" between the control and the other two is
+>    mostly the difference between face 1's point cloud and face 2's. Measured properly —
+>    holding the source fixed, swapping only the reference, resampling in pairs — the
+>    control effect is **+0.019 to +0.025**, and in one of three runs it is +0.001.
+>    §4's "The control result validates the method itself" therefore overstates what the
+>    control establishes.
+> 2. **The input data carried a 9.6% range error.** The stereo focal length was 457.1
+>    where the simulated camera requires 417.03, fixed 2026-10-04 in `c34769e`. The
+>    analysis has been re-run on corrected bags.
+>
+> The central finding — face 2 shows no preference for its own geometry — **survives**, and
+> replicates in direction across three runs and two calibrations. Its magnitude did not.
+>
+> The three figures Part 2 originally embedded were deleted on 2026-10-08: no script was
+> ever committed for them, so they cannot be regenerated, and their captions argue from
+> the retracted comparison. The replacement figure lives with the canonical write-up.
+
+
 *Reproduced in full below; completed prior to this session's investigation, included here because it documents the same class of risk (appearance-based SLAM confusion on repeated structure) discussed in Part 1.6, using an entirely independent method and an earlier mission bag.*
 
 ### Abstract
@@ -139,11 +164,11 @@ The **control** row answers "does this whole method actually work?" It compares 
 
 The two rows that matter for the actual question are the **suspected** row (face 2's points against face 1's geometry — testing directly for the suspected confusion) and the **sanity check** row (face 2's points against its own real geometry — testing whether face 2 was just mapped cleanly as itself, which would make the whole suspicion moot).
 
-![Task A summary bar chart](task_a/task_a_figures/task_a_summary_bars.png)
+*[figure `task_a_summary_bars.png` removed 2026-10-08 — superseded, see the note at the top of Part 2]*
 
 *Figure 1 — Fitness and RMSE, mean ± standard deviation across 50 bootstrap resamples. The gap between the control bar and the other two (≈0.13 in fitness) is far larger than any of the error bars — a large, confident effect. The gap between "suspected" and "sanity" (0.007) is smaller than either one's own error bar — i.e., statistically, these two are not distinguishable from each other.*
 
-![Task A bootstrap distributions](task_a/task_a_figures/task_a_bootstrap_distributions.png)
+*[figure `task_a_bootstrap_distributions.png` removed 2026-10-08 — superseded, see the note at the top of Part 2]*
 
 *Figure 2 — The full shape of all 50 bootstrap resamples per comparison (violin plots), not just their mean and spread. Left (fitness): the control distribution is cleanly separated from the other two, which sit essentially on top of each other. Right (RMSE): interestingly, the "suspected" comparison actually has the numerically **lowest** mean RMSE of all three (0.609 m) — meaning that among the (relatively few) points that do count as inliers for that comparison, they land unusually close to face 1's geometry. We report this because it is a real, observed data point, but we do not treat it as confirming the false-closure hypothesis on its own: fitness (which measures *how many* points match at all, not just how precisely the matching ones land) is statistically tied with the sanity check, so this low-RMSE-among-few-inliers pattern needs to be read alongside that tie, not instead of it.*
 
@@ -153,7 +178,7 @@ The two rows that matter for the actual question are the **suspected** row (face
 
 **Face 2 shows no measurable preference for its own true geometry.** This is the central finding. 0.165 ± 0.005 (against face 1's geometry) and 0.158 ± 0.006 (against face 2's *own* true geometry) overlap once you account for their uncertainty — this is a statistically confirmed tie, established via the bootstrap distributions, not just "the two numbers looked close." If face 2 had actually been mapped correctly as itself, we would expect it to show the same kind of clear self-preference that face 1 does in the control row. It does not.
 
-![Task A spatial overlay](task_a/task_a_figures/task_a_spatial_overlay.png)
+*[figure `task_a_spatial_overlay.png` removed 2026-10-08 — superseded, see the note at the top of Part 2]*
 
 *Figure 3 — A qualitative, top-down look at the same data in world-frame coordinates (this figure is for visual intuition only; the fitness numbers above use the more carefully restricted frustum reference, not this simpler view). Left panel: face 1's points (blue, the control) and face 2's points (orange, the suspected case) plotted against face 1's reference geometry (gray). The blue points visibly sit inside and around the gray patch, as expected for a real match; the orange points sit consistently below/offset from it. Right panel: face 2's own points (green) against face 2's *own* true reference (gray) — notably, the green points spread well beyond their own true reference patch too. This is consistent with the low absolute fitness reported for that pair, and is worth stating plainly as a limitation: visually, neither the cross-face nor the same-face comparison shows the tight, obvious co-location that the control case shows.*
 

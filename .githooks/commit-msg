@@ -1,0 +1,29 @@
+#!/bin/sh
+# Reject attribution trailers and assistant-generated footers.
+#
+# CLAUDE.md states the rule, but a rule in a file only works if whatever is
+# committing happens to read that file. This enforces it mechanically,
+# whoever or whatever runs `git commit`.
+#
+# Deliberately NOT a bare search for "claude": a message like
+# "Update CLAUDE.md with git conventions" is legitimate and must pass.
+# Only attribution-shaped lines are rejected.
+#
+# Installed via: git config core.hooksPath .githooks
+# Bypass for a genuine human co-author: git commit --no-verify
+
+bad=$(grep -v '^#' "$1" | grep -inE \
+    -e '^[[:space:]]*co-authored-by[[:space:]]*:' \
+    -e '^[[:space:]]*signed-off-by[[:space:]]*:.*(claude|anthropic)' \
+    -e 'generated with.*(claude|anthropic)' \
+    -e '(claude|anthropic)\.(com|ai)' \
+    -e '🤖')
+
+if [ -n "$bad" ]; then
+    echo "commit-msg: attribution line(s) found, commit rejected:" >&2
+    printf '%s\n' "$bad" >&2
+    echo "" >&2
+    echo "Remove them. For a genuine human co-author: git commit --no-verify" >&2
+    exit 1
+fi
+exit 0
