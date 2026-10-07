@@ -17,7 +17,7 @@ Checked against disk on 2026-10-01, not assumed from prior notes.
 | Buggy-matrix ablation (#9) | **Not run** — zero `buggy_*` rows exist | `results.jsonl` has only `buggy_alloc=false` rows |
 | Ablation switch mechanism | Working (`BLUEROV2_BUGGY_ALLOC=1` env flag) | `bluerov2_autonomous_controller.py`, verified live |
 | Trial harness | Working, hardened | `eval/run_trial.py` (collision guard + stdout capture, both added 2026-09-23/24) |
-| Task A — ICP false-loop-closure verification | **Re-run 2026-10-07 under corrected calibration; effect revised from 0.13 to ~0.02.** Write-up not yet updated | `docs/task_a/`, `eval/task_a_reextract.py`, `eval/task_a_out/` |
+| Task A — ICP false-loop-closure verification | **Re-run and write-up revised 2026-10-08.** Effect corrected from 0.13 to ~0.02 (paired design, 2×2); finding survives, magnitude did not | `docs/task_a/`, `eval/task_a_reextract.py`, `eval/fig_task_a.py` |
 | Task #15 — SLAM map fragmentation | **Root-caused + written up**; fix not implemented | `docs/TASK_15_SLAM_MAP_FRAGMENTATION_WRITEUP.md` |
 | Task #16 — EKF yaw instability | **Fixed + bag-verified** | missing `base_link`↔`imu_filter` TF; `bluerov2_sim.py` |
 | Literature base | Exists, ~40 refs, unverified | `~/Desktop/RESEARCH_DIRECTIONS_HANDOFF.md` §351-505 — **not in repo** |
@@ -506,12 +506,11 @@ that were supposed to gate the batch turned out to have already been flown on 20
    so the slow sub-threshold slides (10-14° per 5 s, `c4343c0`) are rejected too, which a
    fixed distance threshold cannot do.
 4. **Then WS-B**, frozen config, L0-L4 × 3. Not before — see §4.
-5. **Parallel, no machine needed:** update the Task A write-up to §1.3's numbers and fix
-   its stale point counts (it reports 45,884/37,651 new points; the committed code gives
-   51,104/43,638 before outlier rejection and 41,106/35,293 after, so the quoted figures
-   match neither); regenerate its figures with `eval/fig_task_a.py`, since no figure
-   script was ever committed for the originals; move the literature base into
-   `docs/literature/` and verify DOIs (WS-E); draft WS-F early.
+5. **Parallel, no machine needed:** move the literature base into `docs/literature/` and
+   verify DOIs (WS-E); draft WS-F early. *(The Task A write-up revision is **done** as of
+   2026-10-08: corrected numbers, 2×2 paired design, stale point counts fixed, new
+   reproducible figure. Its three original figures are superseded and unreferenced but
+   still on disk — delete them when convenient.)*
 6. **Housekeeping:** delete the stale `history-fix-20260922` branch and `refs/original/`
    backup refs. The L0 bags live on the `more space` drive, currently unmounted — the
    extracted `.npz` files are in `plots/`, so the analyses are reproducible without it,
