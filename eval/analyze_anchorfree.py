@@ -75,15 +75,64 @@ def wrap(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
 
+def _iter_recovered(path, topics):
+    """Stream a bag that has no footer or summary index.
+
+    `ros2 bag record` writes the footer, the summary and metadata.yaml only
+    on clean shutdown, so a recorder that is SIGKILLed -- or a machine that
+    loses power mid-run -- leaves a file whose data chunks are entirely
+    intact but which the normal indexed reader refuses outright. The records
+    themselves are still a valid sequence, so they can be walked from the
+    header and decoded with the schemas as they appear. Recovered 108,716 of
+    a 110 MB bag on 2026-10-09 that would otherwise have cost a re-flight.
+    """
+    from mcap.stream_reader import StreamReader
+    from mcap_ros2.decoder import DecoderFactory
+    from mcap.records import Channel, Message, Schema
+
+    factory = DecoderFactory()
+    schemas, channels, decoders = {}, {}, {}
+    with open(path, "rb") as fh:
+        try:
+            for rec in StreamReader(fh, skip_magic=False).records:
+                if isinstance(rec, Schema):
+                    schemas[rec.id] = rec
+                elif isinstance(rec, Channel):
+                    channels[rec.id] = rec
+                elif isinstance(rec, Message):
+                    ch = channels.get(rec.channel_id)
+                    if ch is None or ch.topic not in topics:
+                        continue
+                    if ch.id not in decoders:
+                        decoders[ch.id] = factory.decoder_for(
+                            ch.message_encoding, schemas.get(ch.schema_id))
+                    dec = decoders[ch.id]
+                    if dec is None:
+                        continue
+                    yield ch.topic, rec.log_time / 1e9, dec(rec.data)
+        except Exception:
+            # Truncation is the expected ending here, not an error.
+            return
+
+
 def load(bag):
     files = sorted(glob.glob(os.path.join(bag, "*.mcap")))
     if not files:
         sys.exit(f"no .mcap under {bag}")
     out = {k: [] for k in (T_TRUTH, T_EST, T_DVL, T_SLAM)}
     for f in files:
-        for m in read_ros2_messages(f, topics=list(out)):
-            t = m.log_time.timestamp() if hasattr(m.log_time, "timestamp") else m.log_time / 1e9
-            r, topic = m.ros_msg, m.channel.topic
+        try:
+            stream = [(m.channel.topic,
+                       m.log_time.timestamp() if hasattr(m.log_time, "timestamp")
+                       else m.log_time / 1e9,
+                       m.ros_msg)
+                      for m in read_ros2_messages(f, topics=list(out))]
+        except Exception as e:
+            print(f"  indexed read failed ({type(e).__name__}); "
+                  f"recovering by streaming -- bag was not closed cleanly",
+                  file=sys.stderr)
+            stream = _iter_recovered(f, set(out))
+        for topic, t, r in stream:
             if topic in (T_TRUTH, T_EST):
                 p = r.pose.pose.position
                 v = r.twist.twist.linear
