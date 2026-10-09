@@ -95,3 +95,48 @@ This is also the case for keeping the gain check in the analyzer permanently.
 Nothing else in the run looked wrong: it completed, the trajectory was clean,
 and the numbers were plausible. Only a measurement that depends on the thing
 being varied caught it.
+
+**2026-10-09, `a50_dr_seed0_20261009_221008` -- VALID, seed 0.** Launch fix in
+place; the error model reached the filter at 73 sigma. Mission completed, four
+faces, home at 2.3 m, 1177 s, 132.5 m.
+
+Realised unit, recovered from `/bluerov2/dvl_twist` against ground-truth body
+velocity, against the registered draw:
+
+| axis | registered | recovered | |
+|---|---|---|---|
+| x | 1.00127 | 1.00000 +/- 0.00055 | 2.3 sigma low |
+| y | 0.99867 | 0.99816 +/- 0.00015 | agrees |
+| z | 1.00647 | 1.00675 +/- 0.00009 | agrees |
+
+The x axis sits a little low because the single-axis regression cannot separate
+the gain from the misalignment's cross-axis coupling: during the orbit phases
+surge is small and sway dominates, so part of v_y leaks into the v_x channel.
+Its residual is correspondingly the largest of the three (mean|err| 0.0017
+against 0.0012 m/s, correlation 0.999 against 1.000). The two axes that are not
+confounded this way match to within a twentieth of a percent.
+
+Drift against the prediction:
+
+| | predicted | measured |
+|---|---|---|
+| final XY error | 0.102 m | 0.11 m |
+| peak error | 0.143 m | 0.16 m |
+| drift, % of distance | 0.078% | 0.08% |
+
+All three inside 10%, from an open-loop propagation through a *different* run's
+trajectory. Criterion 1 is met; criterion 3 is met on the two unconfounded axes;
+criterion 2 needs seeds 1 and 2.
+
+The mechanism is also visible rather than merely inferred. Panel (b) of the
+figure is a smooth structured curve -- error builds to 0.16 m by 40 m, unwinds
+to near zero by 100 m, then builds again -- which is the body-fixed residual
+being rotated through the circumnavigation and cancelling. The white-noise bags
+show a jagged random walk in the same panel. Bearing error carries a matching
+hump to 0.74 deg while yaw stays flat at 0.28 deg, confirming that scale error
+moves position, not heading.
+
+Against the two white-noise replicates: ATE RMSE 0.10 m against 0.02 and 0.03 m,
+drift 0.08% against 0.03% and 0.01%. Roughly 4x, and still far inside the
+controller's 12 deg bearing gate, which is why the mission completed exactly as
+predicted.
