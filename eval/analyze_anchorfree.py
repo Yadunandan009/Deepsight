@@ -219,19 +219,53 @@ def main():
         print("\n  DVL vs ground-truth body velocity "
               f"({moving.sum()} samples while moving):")
         ok = True
+        gains = []
         for i, ax in enumerate("xyz"):
             a, b = tv[moving, i], dvl[moving, i + 1]
             if len(a) < 5 or np.std(a) < 1e-6:
                 print(f"    v{ax}: too little motion to judge")
                 continue
             corr = float(np.corrcoef(a, b)[0, 1])
+            # Least-squares gain through the origin recovers the scale factor
+            # the bridge actually applied.  This is the one check on the error
+            # model that does not depend on the trajectory: whatever the
+            # vehicle flew, the gain is a property of the simulated unit.
+            # Reported as a deviation because the interesting quantity is a
+            # fraction of a percent.
+            gain = float((a * b).sum() / (a * a).sum())
+            # The gain is estimated from noisy data, so it is never exactly 1
+            # even with no systematic error: on the white-noise baseline vx
+            # came back at +0.043%.  Carry its standard error so "deviates
+            # from 1" is a statistical claim rather than a magic threshold.
+            resid = b - gain * a
+            se = float(np.sqrt((resid ** 2).sum() / max(len(a) - 1, 1)
+                               / (a * a).sum()))
             print(f"    v{ax}: correlation {corr:+.3f}   "
-                  f"mean|err| {np.abs(a - b).mean():.4f} m/s"
+                  f"mean|err| {np.abs(a - b).mean():.4f} m/s   "
+                  f"gain {gain:.5f} +/- {se:.5f} "
+                  f"({100 * (gain - 1):+.3f}% +/- {100 * se:.3f}%)"
                   f"{'   <-- SIGN FLIPPED' if corr < -0.5 else ''}")
             if corr < -0.5:
                 ok = False
+            gains.append((gain, se))
         print("    DVL frame is correct" if ok else
               "    DVL FRAME IS WRONG -- the run is invalid for navigation claims")
+        if gains:
+            # Significant at 5 sigma on any axis, and large enough to matter.
+            # scale_sigma for the A50 is 1.01%, so a real unit sits tens of
+            # standard errors out; estimation noise sits at two or three.
+            z = max(abs(g - 1) / se for g, se in gains)
+            dev = max(abs(g - 1) for g, _ in gains)
+            if z > 5 and dev > 1e-3:
+                print(f"    systematic gain error IS present "
+                      f"(up to {100 * dev:.3f}%, {z:.0f} sigma). Cross-check "
+                      f"the realised unit against the launch log; drift should "
+                      f"grow with DISTANCE.")
+            else:
+                print(f"    no systematic gain error (largest deviation "
+                      f"{100 * dev:.3f}%, {z:.1f} sigma -- consistent with "
+                      f"estimation noise). This is the WHITE-NOISE-ONLY DVL, "
+                      f"so drift grows as sqrt(time) and is optimistic.")
 
     # ---- segmented drift -------------------------------------------------
     def seg(name, mask):
