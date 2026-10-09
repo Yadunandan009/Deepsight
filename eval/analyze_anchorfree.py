@@ -146,8 +146,24 @@ def load(bag):
     return {k: np.array(v) for k, v in out.items() if v}
 
 
-def interp_to(src_t, src_cols, dst_t):
-    return np.column_stack([np.interp(dst_t, src_t, c) for c in src_cols.T])
+def interp_to(src_t, src_cols, dst_t, angle_cols=()):
+    """Resample columns onto dst_t.
+
+    Columns named in angle_cols are angles in radians and are interpolated
+    through sin/cos.  Interpolating them linearly is wrong: when the vehicle
+    sits on the +/-pi seam (it parks at yaw = 180 deg on one of the turbine
+    faces) consecutive samples straddle +180 and -180, and the linear blend
+    lands near 0, manufacturing a ~180 deg error out of nothing.
+    """
+    out = []
+    for i, c in enumerate(src_cols.T):
+        if i in angle_cols:
+            s = np.interp(dst_t, src_t, np.sin(c))
+            k = np.interp(dst_t, src_t, np.cos(c))
+            out.append(np.arctan2(s, k))
+        else:
+            out.append(np.interp(dst_t, src_t, c))
+    return np.column_stack(out)
 
 
 def main():
@@ -165,7 +181,7 @@ def main():
 
     # Resample the estimate onto ground-truth timestamps.
     tt = truth[:, 0]
-    ee = interp_to(est[:, 0], est[:, 1:], tt)
+    ee = interp_to(est[:, 0], est[:, 1:], tt, angle_cols=(3,))  # col 3 is yaw
     tx, ty, tz, tyaw = truth[:, 1], truth[:, 2], truth[:, 3], truth[:, 4]
     ex, ey, ez, eyaw = ee[:, 0], ee[:, 1], ee[:, 2], ee[:, 3]
 
@@ -257,9 +273,22 @@ def main():
         axes[1].set_xlabel('distance travelled (m)')
         axes[1].set_ylabel('position error (m)')
         axes[1].set_title('(b) drift', loc='left')
-        axes[2].plot(rel, brg_err, color=SERIES[1], lw=1.0, label='bearing')
-        axes[2].plot(rel, yaw_err, color=SERIES[2], lw=1.0, ls='-.', label='yaw')
-        axes[2].set_xlabel('time (s)'); axes[2].set_ylabel('error (deg)')
+        # The raw series are ~100 Hz: drawn directly they overplot into a solid
+        # block that shows nothing.  Summarise each 5 s window by its MAXIMUM,
+        # which is conservative -- it keeps every peak, so the envelope still
+        # supports a "stayed below X" claim -- and is legible at ~300 points.
+        def envelope(t, e, win=5.0):
+            n = max(1, int(win / np.median(np.diff(t))))
+            k = (len(e) // n) * n
+            if k == 0:
+                return t, e
+            return (t[:k].reshape(-1, n).mean(1), e[:k].reshape(-1, n).max(1))
+
+        bt, be = envelope(rel, brg_err)
+        yt, ye = envelope(rel, yaw_err)
+        axes[2].plot(bt, be, color=SERIES[1], lw=1.0, label='bearing')
+        axes[2].plot(yt, ye, color=SERIES[2], lw=1.0, ls='-.', label='yaw')
+        axes[2].set_xlabel('time (s)'); axes[2].set_ylabel('5 s peak error (deg)')
         axes[2].legend(loc='best')
         axes[2].set_title('(c) bearing vs heading', loc='left')
         for a in axes:
