@@ -4,7 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.parameter_descriptions import ParameterValue
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 
@@ -105,18 +105,34 @@ def generate_launch_description():
     #                      unit has, at Nortek DVL A50 datasheet level. These
     #                      are fixed per unit and integrate linearly.
     # dvl_seed:=<int>      which unit you have. Sweep it for a distribution.
-    dvl_bridge = Node(
+    #
+    # Two nodes under opposite conditions rather than one node with a
+    # conditional parameter list.  PythonExpression returns a STRING, so
+    # building the list inside one meant `parameters` received the literal
+    # text "['/.../dvl_a50.yaml']" -- a filename that does not exist, which
+    # ROS silently ignored, leaving the zero defaults.  The 2026-10-09
+    # seed 0 run was recorded that way and is a white-noise bag wearing an
+    # a50 name; only the scale factor recovered from /bluerov2/dvl_twist
+    # caught it.  A condition cannot fail this way.
+    _dvl_is_a50 = PythonExpression(["'", dvl_error, "' == 'a50'"])
+    _dvl_common = dict(
         package='stonefish_bluerov2',
         executable='dvl_bridge.py',
         name='dvl_bridge',
         output='screen',
+    )
+    dvl_bridge = Node(
+        condition=UnlessCondition(_dvl_is_a50),
+        parameters=[{'error_seed': ParameterValue(dvl_seed, value_type=int)}],
+        **_dvl_common,
+    )
+    dvl_bridge_a50 = Node(
+        condition=IfCondition(_dvl_is_a50),
         parameters=[
-            PythonExpression([
-                "[] if '", dvl_error, "' == 'none' else ['",
-                os.path.join(stonefish_bluerov2_dir, 'dvl_a50.yaml'), "']",
-            ]),
+            os.path.join(stonefish_bluerov2_dir, 'dvl_a50.yaml'),
             {'error_seed': ParameterValue(dvl_seed, value_type=int)},
         ],
+        **_dvl_common,
     )
 
     # 5c. Adaptive Fusion Node — confidence-driven SLAM/EKF blending
@@ -238,6 +254,7 @@ def generate_launch_description():
         depth_bridge,
         slam_pose_bridge,
         dvl_bridge,
+        dvl_bridge_a50,
         adaptive_fusion,
         image_enhancement_left,
         image_enhancement_right,

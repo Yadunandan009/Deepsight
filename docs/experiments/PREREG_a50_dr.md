@@ -65,3 +65,33 @@ It is the control for the SLAM arm. `anchorfree_run1_20261009_185821` reached
 worst datasheet DVL unit stays under a metre, then the dominant failure mode in
 GPS-denied inspection of a symmetric structure is not sensor drift but discrete
 misassociation, and the paper is about that.
+
+---
+
+## Run log
+
+Appended after the fact; the predictions above are unchanged from the commit
+that registered them.
+
+**2026-10-09, `a50_dr_seed0_20261009_210804` -- VOID, not an a50 run.** The
+mission completed (four faces, home at 2.2 m, 1162 s, 131.9 m), but the scale
+factor recovered from `/bluerov2/dvl_twist` came back at 0.99994 / 1.00006 /
+0.99989, within 1.3 sigma of unity, where seed 0 should read 1.00127 / 0.99867 /
+1.00647. This is falsification criterion 2: the error model never reached the
+filter.
+
+Cause was the launch file, not the run. `parameters` was built with a
+`PythonExpression`, which returns a *string*, so the node was handed the literal
+text `"['/.../dvl_a50.yaml']"` as a filename, found nothing, and kept its zero
+defaults. Fixed by splitting into two nodes under `IfCondition` /
+`UnlessCondition`, which cannot fail silently this way.
+
+The bag is still useful: it is an independent **replicate of the white-noise
+baseline**, and the two agree -- 0.01% vs 0.03% drift, ATE 0.03 m vs 0.02 m,
+max bearing error 0.51 deg vs 0.47 deg over essentially the same distance.
+That is the first replication of any result in this project.
+
+This is also the case for keeping the gain check in the analyzer permanently.
+Nothing else in the run looked wrong: it completed, the trajectory was clean,
+and the numbers were plausible. Only a measurement that depends on the thing
+being varied caught it.
