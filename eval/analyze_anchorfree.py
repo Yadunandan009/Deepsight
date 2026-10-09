@@ -23,6 +23,33 @@ was the cause of the 2026-10-09 divergence, so the check is permanent.
 
 Usage: python3 eval/analyze_anchorfree.py <bag_dir> [--fig]
 """
+# --- interpreter shim -------------------------------------------------
+# mcap_ros2 is installed only in venv-ardupilot, while env.sh deliberately
+# STRIPS that venv from PATH so ros2 launch's child nodes get the system
+# python and a working cv_bridge. So the interpreter that can run ROS nodes
+# is exactly the one that cannot read bags, and vice versa. Rather than
+# require the caller to remember which shell they are in, re-exec under the
+# interpreter that has the reader. The guard variable stops this recursing
+# if that interpreter also lacks it.
+import os
+import sys
+
+try:
+    import mcap_ros2  # noqa: F401
+except ImportError:
+    _alt = os.path.expanduser("~/venv-ardupilot/bin/python3")
+    # Compared as literal paths, not realpath: a venv's bin/python3 is a
+    # symlink to the system interpreter, so realpath collapses the two and
+    # the re-exec never fires -- even though invoking it by the venv path
+    # is precisely what puts the venv's site-packages on sys.path.
+    if not os.environ.get("_BAGREADER_REEXEC") and os.path.exists(_alt) \
+            and os.path.abspath(_alt) != os.path.abspath(sys.executable):
+        os.environ["_BAGREADER_REEXEC"] = "1"
+        os.execv(_alt, [_alt] + sys.argv)
+    sys.exit("mcap_ros2 not found in any available interpreter; "
+             "pip install mcap-ros2-support")
+# ----------------------------------------------------------------------
+
 import argparse
 import glob
 import math
