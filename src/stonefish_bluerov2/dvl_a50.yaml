@@ -1,0 +1,25 @@
+# Nortek DVL A50 systematic error model for dvl_bridge.
+#
+# Stonefish's own <noise velocity="0.0015"/> is zero-mean white noise, which
+# integrates as a random walk (sqrt(time), wanders in sign). It is NOT what
+# limits a real DVL. These two terms are fixed properties of the unit, so they
+# integrate linearly with distance and never average out.
+#
+#   scale_sigma         1-sigma per-axis gain error as a fraction of velocity.
+#                       0.0101 is the A50's quoted +/-1.01% long-term accuracy.
+#   misalign_sigma_deg  1-sigma angular error between the true beam frame and
+#                       the assumed mount frame. 0.5 deg is a typical
+#                       mechanical mounting + beam alignment budget.
+#   error_seed          selects WHICH unit you have. Hold it fixed to repeat a
+#                       run; sweep it to get a drift distribution over units,
+#                       which is the honest way to report this -- a single seed
+#                       is one sample from a wide spread (measured on the
+#                       2026-10-09 trajectory: 0.10 m to 0.54 m across 8 seeds).
+#
+# Set scale_sigma and misalign_sigma_deg to 0.0 to recover the white-noise-only
+# baseline exactly (verified: the error matrix reduces to the mount rotation).
+dvl_bridge:
+  ros__parameters:
+    scale_sigma: 0.0101
+    misalign_sigma_deg: 0.5
+    error_seed: 0

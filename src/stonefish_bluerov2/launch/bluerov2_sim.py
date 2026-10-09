@@ -2,7 +2,8 @@ import os
 from launch_ros.actions import Node
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch_ros.parameter_descriptions import ParameterValue
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
@@ -45,6 +46,18 @@ def generate_launch_description():
     )
     rviz_enabled = LaunchConfiguration('rviz')
 
+    dvl_error_arg = DeclareLaunchArgument(
+        'dvl_error', default_value='none',
+        description="DVL error model: 'none' (white noise only, as Stonefish "
+                    "models it) or 'a50' (adds datasheet scale factor and beam "
+                    "misalignment, which drift linearly with distance)")
+    dvl_error = LaunchConfiguration('dvl_error')
+
+    dvl_seed_arg = DeclareLaunchArgument(
+        'dvl_seed', default_value='0',
+        description='Selects which DVL unit is simulated; sweep for a spread')
+    dvl_seed = LaunchConfiguration('dvl_seed')
+
     # 3. Stonefish Simulator
     launch_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(stonefish_ros2_dir, 'launch', 'stonefish_simulator.launch.py')),
@@ -85,11 +98,25 @@ def generate_launch_description():
     )
 
     # 5b. DVL Bridge
+    #
+    # dvl_error:=none      white noise only, as Stonefish models it. This is
+    #                      optimistic: it drifts as sqrt(time), not as distance.
+    # dvl_error:=a50       adds the scale factor and beam misalignment a real
+    #                      unit has, at Nortek DVL A50 datasheet level. These
+    #                      are fixed per unit and integrate linearly.
+    # dvl_seed:=<int>      which unit you have. Sweep it for a distribution.
     dvl_bridge = Node(
         package='stonefish_bluerov2',
         executable='dvl_bridge.py',
         name='dvl_bridge',
-        output='screen'
+        output='screen',
+        parameters=[
+            PythonExpression([
+                "[] if '", dvl_error, "' == 'none' else ['",
+                os.path.join(stonefish_bluerov2_dir, 'dvl_a50.yaml'), "']",
+            ]),
+            {'error_seed': ParameterValue(dvl_seed, value_type=int)},
+        ],
     )
 
     # 5c. Adaptive Fusion Node — confidence-driven SLAM/EKF blending
@@ -204,6 +231,8 @@ def generate_launch_description():
         scenario_arg,
         quality_arg,
         rviz_arg,
+        dvl_error_arg,
+        dvl_seed_arg,
         launch_include,
         ardusim_patch,
         depth_bridge,
