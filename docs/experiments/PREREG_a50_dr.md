@@ -140,3 +140,42 @@ Against the two white-noise replicates: ATE RMSE 0.10 m against 0.02 and 0.03 m,
 drift 0.08% against 0.03% and 0.01%. Roughly 4x, and still far inside the
 controller's 12 deg bearing gate, which is why the mission completed exactly as
 predicted.
+
+**2026-10-12, `a50_dr_seed1_20261012_173121` -- VALID, seed 1.** Mission
+completed, four faces, home at 2.3 m, 1183 s, 130.4 m.
+
+| | predicted | measured |
+|---|---|---|
+| final XY error | 0.312 m | 0.34 m |
+| peak error | 0.408 m | 0.39 m |
+| drift, % of distance | 0.238% | 0.26% |
+| peak bearing error | 1.39 deg | 1.17 deg |
+
+The unit check is now exact rather than approximate. The per-axis gains read
++0.784 / +1.300 / +0.116%, against a registered scale of +0.349 / +0.830 /
++0.334%, which looks like a 0.45% disagreement. It is not: a single-axis
+regression cannot separate the gain from the misalignment's cross-axis
+coupling, and seed 1's misalignment is an order of magnitude larger than seed
+0's on the roll axis (-0.652 deg against +0.052 deg), so more of the other
+axes leaks in.
+
+Recovering the whole 3x3 operator by least squares separates them.
+`eval/verify_dvl_model.py` does this, and every element of both seeds' matrices
+matches prediction to within 0.0008 -- eight parts in ten thousand, across all
+nine entries, gains and coupling alike. That is a complete end-to-end check of
+the error model, and it confirms both bags carry the unit their seed specifies.
+
+## Status against the registered criteria
+
+| seed | predicted | measured | unit verified |
+|---|---|---|---|
+| 0 | 0.078% | 0.08% | yes, to 0.0008 |
+| 1 | 0.238% | 0.26% | yes, to 0.0008 |
+| 2 | 0.409% | pending | |
+
+Criterion 1 (0.05 - 1.0 m) holds for both. Criterion 3 holds exactly, once
+measured with the full matrix rather than per-axis. Criterion 2, the ordering,
+holds so far -- 0.08% then 0.26%, a factor of 3.3 against a predicted 3.1 --
+and seed 2 completes it.
+
+Both missions completed well inside the 12 deg bearing gate, as registered.
