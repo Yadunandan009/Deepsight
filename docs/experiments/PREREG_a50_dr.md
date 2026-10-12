@@ -302,3 +302,46 @@ and now says so instead. The attribution above rests on exclusion (DVL, IMU and
 depth each ruled out by their own residuals), not on observing the SLAM pose.
 
 Seeds 1 and 2 of arm 2 still to run, with `record_run.sh slam <seed>`.
+
+## The excursion, from ground truth
+
+| | |
+|---|---|
+| commanded standoff | 17.0 m |
+| true range to turbine | min 14.6 m, **max 57.3 m** at t = 890 s |
+| believed range at that moment | 16.6 m |
+| time beyond 2x standoff (34 m) | 717 s, 29 % of the run (first at t = 439 s) |
+
+| t (s) | true r | believed r | gap |
+|---|---|---|---|
+| 200 | 17.3 | 17.2 | +0.1 |
+| 400 | 25.7 | 36.3 | -10.6 |
+| 600 | 46.6 | 26.4 | +20.3 |
+| 800 | 57.2 | 16.5 | +40.7 |
+| 1200 | 25.3 | 17.0 | +8.3 |
+
+At its furthest the vehicle was 3.4x its commanded standoff from the structure
+while reporting that it was holding the setpoint to within half a metre.
+
+## The error is a fixed offset, not drift
+
+After t = 500 s the estimate's error is a constant world-frame translation:
+
+    magnitude  40.75 m  (sd 0.04 m)
+    direction   168.0 deg  (circular sd 0.1 deg)
+
+Four centimetres of spread over 1900 s. This is not accumulating error -- the
+map was registered to the world about 40 m out, and from then on the navigation
+was internally consistent and precisely wrong, dead reckoning at 0.45 % about
+the wrong origin. Every residual the system can compute for itself stayed small
+the whole time: yaw 0.42 deg, depth 15 mm, DVL innovation nil.
+
+End state: the vehicle finished RETURN_HOME reporting `d=2.0 m` while sitting at
+(38.41, -9.17) -- 39.5 m from home, on the far side of the turbine. Its estimate
+placed it at (-1.44, -0.67).
+
+A constant rigid offset of this kind, at a bearing near 168 deg on a structure
+with four near-identical faces, is what misassociation looks like from outside
+SLAM. That is a hypothesis and not a result: the SLAM topics were not recorded
+here. Seeds 1 and 2 must be recorded with `record_run.sh slam <seed>` so the
+pose and map-point streams are present to test it.
