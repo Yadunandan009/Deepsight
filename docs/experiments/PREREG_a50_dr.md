@@ -189,7 +189,12 @@ comes from the recording script, the unit from the launch argument. The 3x3
 check settles it without ambiguity -- the bag matches seed 2 to 0.00049 and
 mismatches seed 0 and seed 1 by 0.022 and 0.014, a factor of thirty. This is
 the second time a check has caught a bookkeeping error that nothing else would
-have, and in the paper this run is seed 2.
+have.
+
+The bag has since been renamed to `a50_dr_seed2_20261012_191733`, re-verified
+against seed 2 after the rename, and its figure regenerated under the correct
+name. Note that two figures carry a `seed0` name: `...210804` is the VOID
+white-noise run logged above, and `...221008` is the valid one.
 
 | | predicted | measured |
 |---|---|---|
