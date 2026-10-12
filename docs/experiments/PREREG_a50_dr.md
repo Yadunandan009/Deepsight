@@ -345,3 +345,101 @@ with four near-identical faces, is what misassociation looks like from outside
 SLAM. That is a hypothesis and not a result: the SLAM topics were not recorded
 here. Seeds 1 and 2 must be recorded with `record_run.sh slam <seed>` so the
 pose and map-point streams are present to test it.
+
+---
+
+# Arm 2, seed 1 -- 2026-10-12: reproduced, and the mechanism measured
+
+Bag `a50_slam_seed1_20261012_230457` (1463 s, 175.8 m). Unit verified as seed 1
+to 0.00027. Name correct -- the first bag the `record_run.sh` guard passed.
+SLAM topics present, which is what makes the rest of this section possible.
+
+## Reproduced, and the DVL seed does not matter
+
+| | arm 2 seed 0 | arm 2 seed 1 |
+|---|---|---|
+| final position error | 40.75 m | **41.04 m** |
+| offset magnitude after t=500 s | 40.75 m (sd 0.04) | **40.76 m (sd 0.20)** |
+| offset direction | 168.0 deg (sd 0.1) | **165.5 deg (sd 0.2)** |
+| max true range from turbine | 57.3 m at t=890 s | **57.0 m at t=861 s** |
+| believed range at that moment | 16.6 m | **16.5 m** |
+| time beyond 2x standoff | 717 s | **715 s** |
+| final true position | (38.41, -9.17) | **(38.42, -11.09)** |
+| final estimated position | (-1.44, -0.67) | **(-1.31, -0.82)** |
+
+Two different DVL units, agreeing to 0.3 m and 2.5 deg. Whatever this is, it is
+not driven by the sensor noise the arm-1 experiment characterised.
+
+Because the SLAM topics are recorded, the run splits cleanly:
+
+| segment | distance | final error | drift |
+|---|---|---|---|
+| dead reckoning only, 0-220 s | 12.5 m | 0.16 m | 1.25 % |
+| with SLAM, 220-1463 s | 163.2 m | **41.04 m** | 25.01 % |
+
+The error is 0.21 m at the instant the first SLAM pose reaches the filter.
+
+## SLAM is not inaccurate. It is in the wrong frame.
+
+Fitting one rigid 2-D transform from ground truth to the pose the bridge
+actually publishes, over 652 poses:
+
+    rotation    +137.33 deg
+    residual    mean 0.07 m   rms 0.09 m   max 0.40 m
+
+Seven centimetres. The tracker is excellent; it is reporting the vehicle in a
+frame rotated 137 deg from the world. This is a registration error, not a
+tracking error, and it is what produces a 41 m offset that holds to 20 cm for
+twenty minutes.
+
+The bridge applied `theta = +152.4 deg`. Published pose = truth rotated
++137.33 deg, so the alignment it should have found is about **+15 deg**.
+
+(The raw map-frame stream `/bluerov2/robot_pose_slam` does *not* admit a single
+rigid transform -- residual 8.9 m mean, 50.8 m max -- consistent with the
+bridge's own `Map point crash detected: 132170 -> 285` near the end.)
+
+## Why it cannot recover: the alignment has no independent reference
+
+From the code and the topic graph, not inferred:
+
+- `slam_pose_bridge` publishes `/bluerov2/robot_pose_slam_ekf`
+- `ekf.yaml` takes that as `pose0`
+- the bridge subscribes `reference_odom`, defaulting to `/bluerov2/odometry/filtered`, with no launch override -- the EKF's own output
+- `_try_solve` fits theta over `self.buf`, whose entries are
+  `(slam_x, slam_y, ekf_x, ekf_y)` (lines 407, 414)
+
+So the rotation taking SLAM into the world is estimated by correlating the SLAM
+track against the EKF track, and the EKF track is produced by applying that
+rotation. Nothing in the loop observes the world. Once SLAM and the EKF agree
+in a rotated frame they keep agreeing, every refit confirms the frame it came
+from, and the system sits at a self-consistent wrong fixed point.
+
+The telemetry matches that reading exactly: theta moved 154.7 -> 152.4 deg, a
+total of 2.3 deg, across twenty minutes during which the fit's baseline grew
+from 5.0 m to 20.4 m. A four-fold increase in geometric information moved the
+answer by two degrees. No `Refit rejected` warning appears in either run -- the
+refits were not fighting the lock, they were agreeing with it.
+
+The initial lock is taken at `MIN_BASELINE = 5.0 m`, and in both seeds it fired
+at spread exactly 5.0 m, immediately after a descent that is nearly all
+vertical motion -- the weakest rotation geometry in the whole mission. That
+choice sets which fixed point the loop falls into; the feedback then makes it
+permanent.
+
+## Consequences for arm 3
+
+A gate that compares SLAM to the filter cannot see this, because the two agree
+by construction. Neither can any internal residual: yaw error stayed at
+0.40 deg, depth at 15 mm, DVL innovation nil, and the SLAM-vs-EKF innovation
+was small until the EKF was already 40 m out (the 55.6 m and 56.0 m rejections
+at t=573 s and 600 s are the gate firing against a runaway estimate, not
+against a bad pose).
+
+The only signal in the stack that contradicted the estimate throughout is the
+sonar range to the structure: 42-47 m measured against 16-17 m believed. Any
+gate that can catch this has to be referenced to something outside the
+SLAM-EKF loop. The design is still an open question and belongs to the author,
+not to this log.
+
+Seed 2 outstanding.
