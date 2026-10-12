@@ -179,3 +179,45 @@ holds so far -- 0.08% then 0.26%, a factor of 3.3 against a predicted 3.1 --
 and seed 2 completes it.
 
 Both missions completed well inside the 12 deg bearing gate, as registered.
+
+**2026-10-12, `a50_dr_seed1_20261012_191733` -- VALID, seed 2 (filename is
+wrong).** Mission completed, four faces, home at 2.1 m, 1125 s, 132.6 m.
+
+`record_run.sh` was given `1` on a run launched with `dvl_seed:=2`, so the bag
+carries a name that contradicts its contents. The two are independent: the name
+comes from the recording script, the unit from the launch argument. The 3x3
+check settles it without ambiguity -- the bag matches seed 2 to 0.00049 and
+mismatches seed 0 and seed 1 by 0.022 and 0.014, a factor of thirty. This is
+the second time a check has caught a bookkeeping error that nothing else would
+have, and in the paper this run is seed 2.
+
+| | predicted | measured |
+|---|---|---|
+| final XY error | 0.535 m | 0.51 m |
+| peak error | 0.690 m | 0.64 m |
+| drift, % of distance | 0.409% | 0.37% |
+| peak bearing error | 2.35 deg | 2.33 deg |
+
+## Arm 1 complete: all three registered criteria met
+
+| seed | predicted drift | measured drift | final error | unit verified |
+|---|---|---|---|---|
+| 0 | 0.078% | 0.08% | 0.11 m (pred 0.102) | 0.00079 |
+| 1 | 0.238% | 0.26% | 0.34 m (pred 0.312) | 0.00080 |
+| 2 | 0.409% | 0.37% | 0.51 m (pred 0.535) | 0.00049 |
+
+1. **Magnitude.** All three land in 0.05 - 1.0 m, every one within 10% of a
+   prediction propagated open-loop through a different run's trajectory.
+2. **Ordering.** 0.08% < 0.26% < 0.37%, against a predicted 0.078% < 0.238% <
+   0.409%. A 4.6x span across three independent closed-loop runs, predicted as
+   5.2x.
+3. **Unit.** Every element of all three 3x3 operators matches its seed's draw to
+   better than 0.0008.
+
+All three completed the four-face inspection and returned home, with peak
+bearing error 0.47, 1.17 and 2.33 deg against a 12 deg gate -- as registered.
+
+For comparison, the white-noise DVL gives 0.03% and 0.01% over the same mission.
+Datasheet scale factor and misalignment make the drift roughly an order of
+magnitude worse and leave it comfortably sub-metre, because the inspection path
+closes a loop and a body-fixed residual largely cancels over 360 deg of yaw.
