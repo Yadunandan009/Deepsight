@@ -226,3 +226,79 @@ For comparison, the white-noise DVL gives 0.03% and 0.01% over the same mission.
 Datasheet scale factor and misalignment make the drift roughly an order of
 magnitude worse and leave it comfortably sub-metre, because the inspection path
 closes a loop and a body-fixed residual largely cancels over 360 deg of yaw.
+
+---
+
+# Arm 2 (SLAM in the loop), seed 0 -- 2026-10-12
+
+Bag `a50_dr_seed1_20261012_200040` (2449 s, 175.5 m travelled, 510 MB).
+
+**The name is wrong twice over and the bag was kept anyway.** The 3x3 operator
+fit identifies the unit as **seed 0**, to 0.00019 -- seeds 1 and 2 miss by
+0.0126 and 0.0223. The arm reads `dr`, but ORB-SLAM3 was up for the whole run,
+so `record_run.sh` dropped the SLAM topics. `record_run.sh` now reads
+`/dvl_bridge error_seed` and the `/bluerov2/map_points` publisher count and
+refuses to record a name the live system contradicts.
+
+| | arm 1, seed 0 | arm 2, seed 0 |
+|---|---|---|
+| final position error | **0.11 m** | **40.75 m** |
+| drift, % of distance | 0.08 % | 23.22 % |
+| ATE RMSE | -- | 37.91 m |
+| mean bearing error | -- | 97.2 deg (max 167.3) |
+| yaw error | -- | 0.06 deg mean, 0.42 max |
+| depth error | -- | 0.003 m mean, 0.015 max |
+| mission outcome | four faces, returned home | `MISSION COMPLETE` |
+
+Same unit, same controller, same mission. SLAM is the only difference, and the
+error is 370x larger.
+
+## The error did not come from the DVL
+
+Integrating this bag's own recorded `/bluerov2/dvl_twist` through ground-truth
+heading from the recorded start pose:
+
+| | final error | % of distance |
+|---|---|---|
+| DVL-only dead reckoning | **0.78 m** | 0.45 % |
+| the filter's own estimate | **40.75 m** | 23.22 % |
+
+Dead reckoning on the same velocities that the filter was fed ends 0.78 m out.
+Yaw error stays under 0.5 deg and depth error under 15 mm all run, so neither
+the IMU nor the depth pose can carry 40 m. The horizontal error entered through
+the SLAM pose.
+
+## It is self-reinforcing
+
+| t (bag) | event |
+|---|---|
+| 251 s | first SLAM alignment solved, theta = +158 deg |
+| 269 s | filter is 5 m from dead reckoning |
+| 301 s | controller's range-to-turbine starts climbing |
+| 311 s | filter is 20 m from dead reckoning |
+| 359 s | SLAM confidence -> 0.00, map frozen at 158,831 points |
+| 652 s, 821 s | bridge rejects SLAM poses as 39.4 m and 55.7 m "from EKF" |
+
+The filter departs dead reckoning 18 s after the first alignment and is 20 m
+out within 60 s. The controller, believing itself at the 17 m standoff, drives
+the vehicle out past 40 m -- at which point the sonar returns 999 (no echo) and
+SLAM loses the structure it was tracking, so no recovery is possible. Faces 1-3
+were "scanned" from roughly 45 m away, with the sonar reading 42-47 m while the
+estimate insisted on 16-17 m, and the state machine reported success.
+
+The two late rejections are worth their own line: the bridge's 5 m innovation
+gate fires at 652 s and 821 s, but by then **the EKF is the thing that is
+wrong**, so the gate is rejecting poses for disagreeing with a runaway estimate.
+A gate referenced to the filter cannot recover a filter that has already left.
+That is a constraint on arm 3's design, not a result.
+
+## What this bag cannot settle
+
+The SLAM topics were not recorded, so the *mechanism* inside SLAM -- whether
+this is the misassociation seen before, or the alignment fit itself -- is not
+decidable from it. The analyzer used to print "SLAM NEVER reached the filter"
+for a bag like this; it was reading an unrecorded topic as an absent signal,
+and now says so instead. The attribution above rests on exclusion (DVL, IMU and
+depth each ruled out by their own residuals), not on observing the SLAM pose.
+
+Seeds 1 and 2 of arm 2 still to run, with `record_run.sh slam <seed>`.

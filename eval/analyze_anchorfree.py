@@ -115,34 +115,73 @@ def _iter_recovered(path, topics):
             return
 
 
+def recorded_topics(bag):
+    """Topics the recorder was told to capture, from metadata.yaml.
+
+    A topic that was never recorded and a topic that was recorded but
+    carried no messages look identical downstream, and they mean opposite
+    things, so the distinction has to come from the bag's own manifest.
+    """
+    path = os.path.join(bag, "metadata.yaml")
+    try:
+        import yaml
+        with open(path) as fh:
+            info = yaml.safe_load(fh)["rosbag2_bagfile_information"]
+        return {t["topic_metadata"]["name"] for t in info["topics_with_message_count"]}
+    except Exception:
+        return set()
+
+
+def _iter_indexed(path, topics):
+    for m in read_ros2_messages(path, topics=list(topics)):
+        t = (m.log_time.timestamp() if hasattr(m.log_time, "timestamp")
+             else m.log_time / 1e9)
+        yield m.channel.topic, t, m.ros_msg
+
+
+def _keep(out, topic, t, r):
+    """Reduce one message to the few numbers we need and drop the rest."""
+    if topic in (T_TRUTH, T_EST):
+        p = r.pose.pose.position
+        v = r.twist.twist.linear
+        out[topic].append((t, p.x, p.y, p.z, yaw_of(r.pose.pose.orientation),
+                           v.x, v.y, v.z))
+    elif topic == T_DVL:
+        v = r.twist.twist.linear
+        out[topic].append((t, v.x, v.y, v.z))
+    elif topic == T_SLAM:
+        out[topic].append((t,))
+
+
 def load(bag):
+    """Read a bag, keeping only the handful of floats each message contributes.
+
+    Both readers are generators and are consumed one message at a time: an
+    Odometry carries two 36-element covariance blocks, so holding the decoded
+    messages of a whole run costs gigabytes. A 41-minute bag (380k messages)
+    was OOM-killed at 10.6 GB RSS on 2026-10-12 when this collected the
+    stream into a list first; reduced as it streams, the same bag's kept
+    numbers are ~100 MB.
+    """
     files = sorted(glob.glob(os.path.join(bag, "*.mcap")))
     if not files:
         sys.exit(f"no .mcap under {bag}")
     out = {k: [] for k in (T_TRUTH, T_EST, T_DVL, T_SLAM)}
     for f in files:
+        mark = {k: len(v) for k, v in out.items()}
         try:
-            stream = [(m.channel.topic,
-                       m.log_time.timestamp() if hasattr(m.log_time, "timestamp")
-                       else m.log_time / 1e9,
-                       m.ros_msg)
-                      for m in read_ros2_messages(f, topics=list(out))]
+            for topic, t, r in _iter_indexed(f, out):
+                _keep(out, topic, t, r)
         except Exception as e:
             print(f"  indexed read failed ({type(e).__name__}); "
                   f"recovering by streaming -- bag was not closed cleanly",
                   file=sys.stderr)
-            stream = _iter_recovered(f, set(out))
-        for topic, t, r in stream:
-            if topic in (T_TRUTH, T_EST):
-                p = r.pose.pose.position
-                v = r.twist.twist.linear
-                out[topic].append((t, p.x, p.y, p.z, yaw_of(r.pose.pose.orientation),
-                                   v.x, v.y, v.z))
-            elif topic == T_DVL:
-                v = r.twist.twist.linear
-                out[topic].append((t, v.x, v.y, v.z))
-            elif topic == T_SLAM:
-                out[topic].append((t,))
+            # The failure can land mid-file, so rewind to this file's start
+            # rather than letting the recovery pass duplicate what it read.
+            for k, n in mark.items():
+                del out[k][n:]
+            for topic, t, r in _iter_recovered(f, set(out)):
+                _keep(out, topic, t, r)
     return {k: np.array(v) for k, v in out.items() if v}
 
 
@@ -207,9 +246,17 @@ def main():
         t_first = D[T_SLAM][0, 0] - t0
         print(f"  first SLAM pose to the filter at t = {t_first:.0f}s "
               f"({len(D[T_SLAM])} messages)")
-    else:
+    elif T_SLAM in recorded_topics(args.bag):
         t_first = None
         print("  SLAM NEVER reached the filter -- this is pure dead reckoning")
+    else:
+        # The dr arm of record_run.sh drops the SLAM topics, so an empty
+        # series here says the topic was not recorded, NOT that SLAM was
+        # absent from the filter. Claiming the latter from this bag would
+        # be an artefact of the recording arm.
+        t_first = None
+        print(f"  {T_SLAM} was NOT RECORDED in this bag -- whether SLAM "
+              "reached the filter cannot be decided from it")
 
     # ---- DVL sign check, per axis ---------------------------------------
     if T_DVL in D and len(D[T_DVL]) > 10:
