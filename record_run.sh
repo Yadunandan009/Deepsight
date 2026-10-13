@@ -24,6 +24,13 @@ TOPICS=(
   /bluerov2/imu
   /bluerov2/multibeam_raw
 )
+# The SLAM-free reference filter, when dr_reference:=true put one up. Without
+# it there is no way to check afterwards whether the reference the alignment
+# was fitted against was itself healthy -- which is the whole claim under test.
+if ros2 topic info /bluerov2/odometry/dr >/dev/null 2>&1; then
+  TOPICS+=(/bluerov2/odometry/dr)
+fi
+
 # map_points grows for the whole mission and is only meaningful with SLAM up.
 if [ "$ARM" != "dr" ]; then
   TOPICS+=(/bluerov2/robot_pose_slam /bluerov2/robot_pose_slam_ekf /bluerov2/map_points)
