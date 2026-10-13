@@ -443,3 +443,71 @@ SLAM-EKF loop. The design is still an open question and belongs to the author,
 not to this log.
 
 Seed 2 outstanding.
+
+---
+
+# Correction and extension, 2026-10-13 (same bag, seed 1)
+
+The section above says "SLAM is not inaccurate. It is in the wrong frame",
+on a rigid fit to the published stream with a 0.07 m residual. Two further
+measurements on the same bag show that claim was too strong, and the real
+picture is different in a way that matters for the fix.
+
+## 1. The 0.07 m residual is partly self-selected
+
+The published stream is what survives the bridge's gate, and that gate rejects
+any pose more than 5 m from the EKF. Once the EKF is itself rotated, the gate
+passes exactly those poses that agree with the rotated frame, so a tight rigid
+fit of the *published* stream against truth is partly manufactured by the
+selection. The rotation value is still real -- the EKF genuinely is ~137 deg
+off truth -- but "the tracker is excellent to 7 cm" is not established by it.
+
+## 2. SLAM's map frame rotation is not constant
+
+Per-window rigid fits of the raw `/bluerov2/robot_pose_slam` track against
+truth, 150 s windows:
+
+| window | n | rotation | resid mean | track span |
+|---|---|---|---|---|
+| 0-150 s | 1900 | +9.83 deg | 0.24 m | 4.2 m |
+| 150-300 s | 1899 | -102.66 deg | 2.78 m | 22.1 m |
+| 300-450 s | 401 | -14.47 deg | 0.07 m | 8.6 m |
+| 750-900 s | 211 | -39.90 deg | 1.09 m | 2.9 m |
+
+Inside the quiet windows the track is locally rigid to 0.07-0.24 m, so the
+tracker is locally sound. Between them the frame rotates by more than 100 deg.
+The large residual in 150-300 s is the frame turning *within* the window.
+
+A consistency check that does hold: in 300-400 s the raw fit is -14.47 deg and
+the published fit is +137.87 deg, differing by 152.34 deg -- exactly the
+theta = +152.4 deg the bridge reported applying. The bridge is doing what it
+says; in that window the correct theta was +14.47 deg.
+
+**This is the deeper problem.** `slam_pose_bridge` is built around a static
+map->world rotation: one lock at `MIN_BASELINE = 5.0 m`, refits capped at
+`REFIT_MAX_DELTA = 15 deg`, damped by `REFIT_EMA_ALPHA = 0.2`, plus a
+cumulative drift cap from `theta_at_lock`. Every one of those is correct for a
+constant rotation and wrong for one that moves 100 deg. Together with the
+feedback loop recorded above -- theta fitted against the EKF that consumes it
+-- the design cannot track the thing it is estimating and cannot detect that
+it has stopped.
+
+## 3. The attitude route is closed, but points at a concrete bug
+
+Estimating the frame rotation from `yaw_ekf - yaw_slam` needs no baseline and
+uses a reference the loop cannot move (the filter's yaw is IMU-only;
+`pose0_config` has yaw false, and it held 0.40 deg against truth all run). It
+does not work: attitude and the position fit disagree by 8, 61, 142, 93 and
+89 deg across the windows.
+
+But in the two windows where the position fit is tight, the disagreement is
+92.54 deg and 89.03 deg. Subtracting 90 deg leaves agreement of 2.54 deg and
+0.97 deg. That is the signature of a fixed ~90 deg frame-convention offset
+between the orientation and position channels of `/bluerov2/robot_pose_slam`
+-- the two are not expressed in the same frame. Two windows is not proof, and
+the publisher is the ORB-SLAM3 container, outside this repo, so the conversion
+could not be inspected here.
+
+If that offset is real and fixed, the attitude route reopens: it would give a
+baseline-free, loop-free, high-rate estimate of a rotation that is now known to
+move. Worth settling before any estimator is written.
