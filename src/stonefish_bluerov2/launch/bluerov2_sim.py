@@ -15,6 +15,7 @@ def generate_launch_description():
 
     # 2. Define File Paths
     ekf_config_path = os.path.join(stonefish_bluerov2_dir, 'ekf.yaml')
+    ekf_dr_config_path = os.path.join(stonefish_bluerov2_dir, 'ekf_dr.yaml')
     rviz_config_path = os.path.join(stonefish_bluerov2_dir, 'rviz', 'bluerov2_conf.rviz')
 
     # 2a. Scenario selection -- was previously hardcoded to bluerov2_turbine.scn
@@ -26,6 +27,16 @@ def generate_launch_description():
         description='Scenario name (without .scn) from stonefish_bluerov2/scenarios/'
     )
     scenario = LaunchConfiguration('scenario')
+
+    # 2a1. Reference for the SLAM->world alignment. See slam_pose_bridge below.
+    dr_reference_arg = DeclareLaunchArgument(
+        'dr_reference',
+        default_value='false',
+        description='Align SLAM against a SLAM-free dead-reckoning filter '
+                    '(/bluerov2/odometry/dr) instead of the filter the bridge '
+                    'feeds. Opens the SLAM->bridge->EKF->bridge loop.'
+    )
+    dr_reference = LaunchConfiguration('dr_reference')
 
     # 2a2. Rendering quality -- was hardcoded to 'high', which drives
     # sustained GPU load/heat hard enough to cause thermal throttling on
@@ -90,11 +101,36 @@ def generate_launch_description():
     )
 
     # 5a. SLAM Pose Bridge
+    #
+    # dr_reference:=false  (default) the bridge aligns the SLAM track against
+    #                      /bluerov2/odometry/filtered -- the output of the
+    #                      filter it feeds through pose0. The rotation is then
+    #                      fitted against a signal it produces, which is not
+    #                      observable: seeds 0 and 1 both locked theta at
+    #                      +152.4 deg where +14.4 deg was correct and settled
+    #                      ~41 m from truth. This is the behaviour under test,
+    #                      kept as the default so existing bags stay
+    #                      comparable.
+    # dr_reference:=true   the bridge aligns against /bluerov2/odometry/dr, a
+    #                      second filter (ekf_dr.yaml) that fuses DVL, depth
+    #                      and IMU and has never seen SLAM. The loop opens.
+    #
+    # NOT /bluerov2/odometry under any circumstances: that is Stonefish ground
+    # truth and would re-anchor the system to it.
+    bridge_reference_odom = PythonExpression([
+        "'/bluerov2/odometry/dr' if '", dr_reference,
+        "'.lower() == 'true' else '/bluerov2/odometry/filtered'"
+    ])
     slam_pose_bridge = Node(
         package='stonefish_bluerov2',
         executable='slam_pose_bridge.py',
         name='slam_pose_bridge',
-        output='screen'
+        output='screen',
+        # ParameterValue, not the bare substitution: a PythonExpression is a
+        # substitution object, and handing one straight to parameters= is what
+        # silently voided the first a50 run.
+        parameters=[{'reference_odom': ParameterValue(bridge_reference_odom,
+                                                      value_type=str)}],
     )
 
     # 5b. DVL Bridge
@@ -186,6 +222,23 @@ def generate_launch_description():
         remappings=[('odometry/filtered', '/bluerov2/odometry/filtered')]
     )
 
+    # 6a. Dead-reckoning EKF -- only when the bridge is told to reference it.
+    #
+    # Nothing consumes /bluerov2/odometry/dr except slam_pose_bridge: the
+    # controller still flies on /bluerov2/odometry/filtered, so SLAM remains
+    # the absolute position reference and this filter only supplies the
+    # short-horizon baseline that makes the alignment observable. It publishes
+    # no TF (ekf_dr.yaml), so the primary filter keeps the transform tree.
+    ekf_dr_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_dr_node',
+        output='screen',
+        parameters=[ekf_dr_config_path],
+        remappings=[('odometry/filtered', '/bluerov2/odometry/dr')],
+        condition=IfCondition(dr_reference),
+    )
+
     # 7. RViz2
     rviz_node = Node(
         package='rviz2',
@@ -249,6 +302,7 @@ def generate_launch_description():
         rviz_arg,
         dvl_error_arg,
         dvl_seed_arg,
+        dr_reference_arg,
         launch_include,
         ardusim_patch,
         depth_bridge,
@@ -259,6 +313,7 @@ def generate_launch_description():
         image_enhancement_left,
         image_enhancement_right,
         ekf_node,
+        ekf_dr_node,
         rviz_node,
         static_tf,
         ned_to_enu_tf,

@@ -74,6 +74,7 @@ install(DIRECTORY
 # Install the EKF configuration files
 install(FILES
   ekf.yaml
+  ekf_dr.yaml
   dvl_a50.yaml
   DESTINATION share/${PROJECT_NAME}
 )

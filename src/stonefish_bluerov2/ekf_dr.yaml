@@ -1,0 +1,147 @@
+### DEAD-RECKONING EKF for BlueROV2 (ROS 2 Jazzy) -- SLAM-FREE BY DESIGN
+###
+### This is ekf.yaml with pose0 (ORB-SLAM3) removed and nothing else
+### intended to differ. It exists for one reason: slam_pose_bridge
+### estimates the SLAM->world rotation by correlating the SLAM track
+### against `reference_odom`, and that defaulted to
+### /bluerov2/odometry/filtered -- the output of the filter the bridge
+### itself feeds through pose0. The registration was therefore fitted
+### against a signal it produces, which makes it unobservable: once SLAM
+### and the filter agree in a rotated frame they keep agreeing, every
+### refit confirms it, and no residual anywhere in the system objects.
+### Measured on 2026-10-12 (bags a50_slam_seed0/1): theta locked at
+### +152.4 deg where +14.4 deg was correct, the estimate settled 40.76 m
+### from truth with a 0.20 m standard deviation over twenty minutes, and
+### the vehicle flew to 57 m from a structure it believed it was holding
+### station 17 m from. See docs/experiments/PREREG_a50_dr.md.
+###
+### Pointing the bridge at THIS filter breaks that loop. It does not
+### demote SLAM: the alignment is one degree of freedom fitted over the
+### bridge's rolling 75 s / ~9 m buffer, where dead-reckoning drift at
+### the measured 0.45 %/distance is about 4 cm -- some 0.25 deg of
+### rotation error. Absolute position still comes from SLAM through
+### pose0 of the primary filter, which is the only thing that bounds
+### drift over a mission. Dead reckoning supplies a short-horizon
+### baseline to OBSERVE the registration; SLAM supplies the position.
+###
+### DO NOT point reference_odom at /bluerov2/odometry. That is Stonefish
+### ground truth, it would work perfectly, and it would silently re-anchor
+### the system to truth -- the regression ekf.yaml's header exists to
+### prevent.
+###
+### ekf.yaml's header objects to keeping "two near-identical configs"
+### because they drift apart. That objection is right and is not answered
+### by discipline: eval/check_ekf_configs.py fails if these two files
+### disagree on any shared parameter outside the allowlist of intended
+### differences below. Run it before trusting a comparison between a run
+### that used this filter and one that did not.
+###
+### INTENDED DIFFERENCES FROM ekf.yaml (the allowlist, kept in sync with
+### the checker):
+###   - node name          ekf_filter_node -> ekf_dr_node
+###   - pose0*             absent here (this is the whole point)
+###   - publish_tf         true -> false  (two filters publishing
+###                        world_ned->base_link would fight; the primary
+###                        filter owns the transform tree)
+###   - print_diagnostics  true -> false  (halves the console noise of
+###                        running two filters; diagnostics on the
+###                        primary are the ones that matter)
+### Everything else -- frames, rates, sensor configs, process noise --
+### must match, or this is not a controlled comparison.
+
+ekf_dr_node:
+  ros__parameters:
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: false
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: false
+    debug: false
+
+    # The primary filter owns world_ned->bluerov2/base_link. This one
+    # publishes an odometry topic and no transform.
+    publish_tf: false
+
+    map_frame: map
+    odom_frame: world_ned
+    base_link_frame: bluerov2/base_link
+    world_frame: world_ned
+
+    # ----------------------------------------------------------------
+    # NO pose0. ekf.yaml fuses /bluerov2/robot_pose_slam_ekf here for
+    # absolute X/Y. Its absence is what makes this filter usable as the
+    # bridge's reference: nothing in it has seen SLAM, so correlating
+    # the SLAM track against it is a measurement rather than a
+    # tautology.
+    #
+    # The cost is honest and bounded: without an absolute horizontal
+    # reference this filter dead-reckons, and its error grows with
+    # distance travelled -- 0.08 %, 0.26 % and 0.37 % on the three arm-1
+    # seeds, 0.45 % on the seed-1 track. Over the bridge's 75 s buffer
+    # that is centimetres. Over a mission it is unbounded, which is
+    # exactly why it is a reference for a rotation and not a navigation
+    # solution.
+    # ----------------------------------------------------------------
+
+    # ----------------------------------------------------------------
+    # SENSOR 2: Depth (pressure) -- identical to ekf.yaml's pose1.
+    # The only absolute Z. Without it this filter's depth is open-loop
+    # and the horizontal comparison against the primary filter would be
+    # confounded by a vertical divergence that has nothing to do with
+    # SLAM.
+    # ----------------------------------------------------------------
+    pose1: /bluerov2/depth_pose
+    pose1_config: [false, false, true,   # Z only
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose1_differential: false
+    pose1_relative: false
+
+    # ----------------------------------------------------------------
+    # SENSOR 3: IMU -- identical to ekf.yaml's imu0.
+    # The only absolute yaw source; held 0.40 deg against truth across
+    # the whole seed-1 mission while position went 41 m out, which is
+    # what makes it trustworthy here.
+    # ----------------------------------------------------------------
+    imu0: /bluerov2/imu
+    imu0_config: [false, false, false,
+                  true,  true,  true,   # Roll, Pitch, Yaw
+                  false, false, false,
+                  true,  true,  true,   # Angular velocities
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # ----------------------------------------------------------------
+    # SENSOR 4: DVL -- identical to ekf.yaml's twist0. This is what
+    # carries the dead reckoning.
+    # ----------------------------------------------------------------
+    twist0: /bluerov2/dvl_twist
+    twist0_config: [false, false, false,
+                    false, false, false,
+                    true,  true,  true,  # vx, vy, vz
+                    false, false, false,
+                    false, false, false]
+    twist0_differential: false
+
+    # Byte-identical to ekf.yaml's. If you tune one, tune both, or
+    # check_ekf_configs.py will tell you that you did not.
+    process_noise_covariance: [0.05,  0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.05,  0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.06,  0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.003,  0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.003,  0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.06, 0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.025, 0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.025, 0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.04, 0.0,    0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.001,  0.0,    0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.001,  0.0,  0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.02, 0.0,  0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.01, 0.0,  0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.01, 0.0,
+                               0.0,   0.0,   0.0,   0.0,    0.0,    0.0,  0.0,   0.0,   0.0,  0.0,    0.0,    0.0,  0.0,  0.0,  0.015]
