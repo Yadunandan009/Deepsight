@@ -511,3 +511,55 @@ could not be inspected here.
 If that offset is real and fixed, the attitude route reopens: it would give a
 baseline-free, loop-free, high-rate estimate of a rotation that is now known to
 move. Worth settling before any estimator is written.
+
+## Retraction, later on 2026-10-13: two of the claims above were fitting artefacts
+
+**Retracted: "SLAM's map frame rotation is not constant."** The per-window
+rotations came from Procrustes fits whose conditioning was never checked. The
+cross-covariance singular-value ratio in those windows is 0.000-0.012 wherever
+the span is meaningful: an inspection track inside a 40-150 s window is nearly
+a straight line, so the residual stays at 0.15 m whatever rotation is fitted.
+Adjacent windows returning -151.77 deg and -73.28 deg at 0.14 m residual was
+the tell, and it should have stopped the claim rather than supporting it. The
+frame may or may not rotate; these data do not say.
+
+**Retracted: the ~90 deg orientation/position offset.** At 40 s resolution the
+position-attitude gap is 20, 3, 5, 46, 102, 178, 144, 94, 87 and 89 deg. The
+two windows that both read ~90 deg were a coincidence of where I happened to
+cut. The ORB-SLAM3 wrapper applies the camera->base conjugation correctly
+(`orb_slam3_interface.cpp:354`), so the frame-convention guess was wrong too.
+
+**What survives, measured two independent ways.** Comparing the *direction of
+travel* over displacements of 2 m or more avoids the conditioning problem
+entirely: the angle between the truth displacement and the SLAM displacement
+is the frame rotation, to about (noise / displacement) radians.
+
+| t | method | frame rotation |
+|---|---|---|
+| 300-400 s | direction of travel, 4 pairs | **-14.42 deg (circ sd 2.0)** |
+| 300-450 s | Procrustes, 8.6 m span, 0.07 m resid | -14.47 deg |
+| 280-360 s | Procrustes, 40 s windows | -15.39, -9.61 deg |
+
+So in the one interval where the geometry supports a measurement, SLAM's map
+frame sits at about -14.4 deg and the bridge should have applied theta =
++14.4 deg. It applied **+152.4 deg**. That is the error, and it is the only
+frame-rotation number in this run that should be quoted.
+
+Elsewhere the direction-of-travel estimate has a circular sd of 56 deg (12
+pairs, t 200-300 s) -- too slow a vehicle and too few long displacements. The
+scale ratio |slam step| / |truth step| is 0.935 with sd 0.328 over 20 pairs,
+which is consistent with unit scale and says nothing sharper.
+
+**Attitude remains closed, for a better reason.** At t 300-400 s the position
+frame is at -14.4 deg (sd 2.0) while `yaw_ekf - yaw_slam` reads +77 to +79 deg
+(sd 0.4-1.3). Both are tight; they simply disagree. SLAM's reported
+orientation is not the orientation of the frame its positions live in, so it
+cannot be used to estimate that frame's rotation -- whatever the cause.
+
+**None of this touches the main result.** The 41 m failure, its reproduction
+across two seeds, the constant 40.76 m world-frame offset, the departure from
+dead reckoning 18 s after the first alignment, and the feedback loop
+(`reference_odom` defaulting to the filter the bridge feeds) rest on direct
+truth-vs-estimate differences, on telemetry, and on the code -- not on any
+fit. The open question is why the solver locked at +152.4 deg when +14.4 deg
+was right, and the `reference_odom` run is the experiment that answers it.
