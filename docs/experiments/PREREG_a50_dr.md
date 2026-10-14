@@ -639,3 +639,33 @@ The remaining problem is `_try_solve`: a rotation-only Procrustes fit over a
 whether the track in that buffer actually determines a rotation. Every one of
 the 13 locks fired at spread = 5.0 m exactly, the minimum. Seeds 0 and 2 of
 this arm, and a conditioning test at the lock, are the next steps.
+
+## Registered before seeds 0 and 2 of the reference arm -- 2026-10-14
+
+Written before either run exists. Seed 1 is the only `dr_reference` bag so
+far, so these are predictions from one sample plus the arm-1 baselines, not
+from a fitted model.
+
+1. **The DR reference filter reproduces arm 1.** It is the same configuration
+   (DVL + depth + IMU, no SLAM), so `/bluerov2/odometry/dr` should land near
+   arm 1's final errors -- 0.11 m for seed 0 and 0.51 m for seed 2 -- within
+   a factor of about three. Seed 1 gave 0.47 m here against 0.34 m in arm 1,
+   so the trajectories differ enough to move it but not by an order of
+   magnitude. **Falsified if either exceeds 2 m.**
+2. **The primary filter stays bounded by the gate, not by SLAM.** Final error
+   of order 1-5 m, maximum under 10 m, because the bridge rejects any SLAM
+   pose more than 5.0 m from the reference. **Falsified by anything above
+   10 m**, which would mean the gate is not what bounds it.
+3. **No excursion.** Maximum true range under about 30 m and zero time beyond
+   twice the 17 m standoff, against 57 m and ~715 s with the loop closed.
+4. **Refits get rejected.** A non-zero count of `Refit rejected` and at least
+   one `re-aligning from scratch`. Zero rejections in either run would mean
+   the alignment agreed with an independent reference, which neither the
+   seed-1 reference run nor the mechanism predicts.
+5. **SLAM still does not help.** The primary filter ends further from truth
+   than its own SLAM-free reference in both runs. **Falsified if SLAM beats
+   dead reckoning on either seed** -- which would be the first evidence that
+   the alignment sometimes works, and would change what the paper can claim.
+
+Criterion 5 is the one worth watching. The others confirm the mechanism; that
+one asks whether anything is salvageable in the current solver.
