@@ -191,11 +191,29 @@ def generate_launch_description():
     # topic was actually wired into ORB-SLAM3's input remap -- see
     # run_stereo_slam.sh -- so the enhancement was invisible in the
     # Pangolin viewer regardless of tuning.)
+    # These two are the only nodes here that load a COMPILED extension whose
+    # ABI is pinned to a NumPy major version: cv_bridge's cv_bridge_boost is
+    # built against the system NumPy 1.26.4. The shebang is
+    # `#!/usr/bin/env python3`, which resolves through PATH, and ~/.profile
+    # activates venv-ardupilot (NumPy 2.4.4) in every login shell -- so
+    # launching from an ordinary terminal ran them under the wrong NumPy and
+    # they died with SIGSEGV on the first frame. ORB-SLAM3 is fed only by
+    # /bluerov2/{left,right}/image_enhanced (run_stereo_slam.sh), so when
+    # these die SLAM gets no images at all and the run is silently void --
+    # it cost two runs on 2026-10-13/14 before the cause was found.
+    #
+    # Naming the interpreter makes the launch independent of which shell
+    # started it. Only these two nodes are pinned: the other Python nodes are
+    # pure-NumPy and ran correctly under 2.4.4, and pinning them would change
+    # the numerical environment that produced the existing bags.
+    IMAGE_NODE_PY = '/usr/bin/python3'
+
     image_enhancement_left = Node(
         package='stonefish_bluerov2',
         executable='image_enhancement_node.py',
         name='image_enhancement_node_left',
         output='screen',
+        prefix=IMAGE_NODE_PY,
         parameters=[{
             'input_topic': '/bluerov2/left/image_color',
             'output_topic': '/bluerov2/left/image_enhanced',
@@ -206,6 +224,7 @@ def generate_launch_description():
         executable='image_enhancement_node.py',
         name='image_enhancement_node_right',
         output='screen',
+        prefix=IMAGE_NODE_PY,
         parameters=[{
             'input_topic': '/bluerov2/right/image_color',
             'output_topic': '/bluerov2/right/image_enhanced',
