@@ -669,3 +669,75 @@ from a fitted model.
 
 Criterion 5 is the one worth watching. The others confirm the mechanism; that
 one asks whether anything is salvageable in the current solver.
+
+# Reference arm, seed 0 -- 2026-10-14
+
+Bag `a50_slamref_seed0_20261014_153610`, 1287 s, 183.0 m travelled, 10 topics
+including `/bluerov2/odometry/dr`. The recording guard passed against the live
+system (`live seed='0' slam_pubs='1'`), and `verify_dvl_model.py` recovers the
+seed 0 operator to a maximum elementwise difference of 0.00021, so the arm and
+seed on the label are the arm and seed that flew.
+
+## Scoring against the registered predictions
+
+| # | prediction | result | |
+|---|---|---|---|
+| 1 | DR reference within ~3x of arm 1 (0.11 m); falsified above 2 m | **0.11 m** | held |
+| 2 | primary filter 1-5 m final, max under 10 m; falsified above 10 m | 0.90 m final, **5.06 m** max | held, but see below |
+| 3 | max true range under ~30 m, zero time beyond 34 m | **31.9 m**, 0 s | mostly held |
+| 4 | non-zero `Refit rejected`, at least one re-align from scratch | **20** and **12** | held |
+| 5 | SLAM loses to its own SLAM-free reference; falsified if SLAM wins | lost by 8x | held |
+
+Two of these need the qualification rather than the tick:
+
+- **Prediction 2 missed low on the final value.** 0.90 m is below the stated
+  1-5 m band. The band was not the falsification criterion and the maximum
+  (5.06 m) sits exactly where the gate predicts, but the point estimate was
+  wrong and the final-error metric is the reason: the primary filter peaked at
+  5.06 m and happened to be near truth when the mission ended. Its RMSE over
+  the run is 3.40 m. Quoting 0.90 m without that would flatter it.
+- **Prediction 3 is 31.9 m against "under about 30".** Close enough to be
+  consistent with the mechanism and nowhere near the 57 m of the closed-loop
+  runs, but it is over the number written down, and the excursion happened at
+  t = 1146 s during RISE, where the filter believed 28.0 m.
+
+## The reference is as good as the no-SLAM arm, and SLAM is 34x worse
+
+| | final | RMSE | max |
+|---|---|---|---|
+| SLAM-free reference filter (DVL + depth + IMU) | **0.11 m** | **0.10 m** | 0.17 m |
+| primary filter (same, plus SLAM as pose0) | 0.90 m | 3.40 m | 5.06 m |
+
+0.11 m final against arm 1 seed 0's 0.11 m: the reference filter reproduces
+the no-SLAM arm exactly, which is the control this whole design needed. Over
+183 m it never exceeds 0.17 m -- 0.09 % of distance travelled.
+
+The gap between the primary filter and its own reference averages **2.70 m and
+peaks at 4.98 m**, against the bridge's 5.0 m rejection threshold. Seed 1 gave
+2.82 m and 4.97 m. Two seeds now press against the gate to within 2 cm. The
+error is set by where the gate is, not by SLAM being approximately right.
+
+## The alignment still does not converge
+
+13 alignments solved from scratch in 1287 s, at theta = +150, +55, -2, -159,
++130, +35, +134, -59, +42, -155, -108, -159 and -45 deg -- spread over the
+full circle, as in seed 1. 20 refits rejected, the largest proposing a 35.7 deg
+change. **Every one of the 13 locks fired at `spread = 5.0 m` exactly**, the
+configured minimum, which is the same signature as seed 1 and confirms that
+`_try_solve` is firing the instant the bounding box is large enough rather than
+when the geometry determines a rotation.
+
+Each lock then decays the same way: a run of accepted refits drifting a few
+degrees per cycle, then rejections as the proposals jump by 15-35 deg, then 40
+consecutive pose rejections, then a re-align from scratch. The cycle ran 12
+times. There is no sign of convergence toward a fixed map->world rotation at
+any point in the mission.
+
+## Status
+
+Criterion 5 is what mattered and it held on a second independent seed: with
+the loop open, dead reckoning alone beats dead reckoning plus SLAM, by 8x on
+final error and 34x on RMSE. Nothing here is salvageable by tuning the gate --
+the gate is doing its job. The defect is in `_try_solve`'s decision of *when*
+it is entitled to claim a rotation. Seed 2 remains, then the conditioning test
+at the lock.
