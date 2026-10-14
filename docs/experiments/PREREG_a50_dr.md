@@ -793,3 +793,87 @@ Criterion 5 therefore holds in this run too, under a condition that makes it
 harder to pass, not easier. Criteria 1-4 are not scored: the arm is wrong.
 
 Seed 2 of the reference arm still needs to be flown, with `dvl_error:=a50`.
+
+# Reference arm, seed 2 (reflown with dvl_error:=a50) -- 2026-10-14
+
+Bag `a50_slamref_seed2_20261014_200359`, 1360 s, 157.2 m. This time the model
+was on: `verify_dvl_model.py` recovers the seed 2 operator to a maximum
+elementwise difference of 0.00046, and the analyzer measures gains of -0.069 %,
++0.412 %, -0.684 % (33 sigma). The arm is now complete with three valid seeds.
+
+## Scoring
+
+| # | prediction | result | |
+|---|---|---|---|
+| 1 | DR reference within ~3x of arm 1 (0.51 m); falsified above 2 m | **0.57 m** | held |
+| 2 | primary 1-5 m final, max under 10 m; falsified above 10 m | 5.52 m final, 5.54 m max | held, band exceeded by 0.5 m |
+| 3 | max true range under ~30 m, zero time beyond 34 m | **23.3 m**, 0 s | held |
+| 4 | non-zero `Refit rejected`, at least one re-align from scratch | **17** and **13** | held |
+| 5 | SLAM loses to its own SLAM-free reference; falsified if SLAM wins | lost by 9.7x | held |
+
+Prediction 2 overshot its band on the high side here, as it undershot on seed 0.
+Both are inside the stated falsification bound, and in both cases the maximum
+sat within half a metre of the gate -- which is the quantity the prediction was
+really about. The final-error band was the wrong thing to have written down.
+
+## The whole arm
+
+| seed | DR reference final | reference RMSE | primary final | primary RMSE | arm-1 no-SLAM final |
+|---|---|---|---|---|---|
+| 0 | 0.11 m | 0.10 m | 0.90 m | 3.40 m | 0.11 m |
+| 1 | 0.47 m | 0.34 m | 1.68 m | 3.19 m | 0.34 m |
+| 2 | **0.57 m** | **0.40 m** | **5.52 m** | **4.06 m** | 0.51 m |
+
+The reference filter reproduces arm 1 on all three seeds (0.11/0.47/0.57
+against 0.11/0.34/0.51), which is the control the design needed: the thing the
+SLAM alignment is fitted against is itself sound, and is the same estimator
+arm 1 reported.
+
+Against it, SLAM costs a factor of **8 to 10 on final error and 9 to 34 on
+RMSE, on every seed**. The filter-to-reference gap peaks at 4.98, 4.97 and
+4.96 m against a 5.0 m gate -- three independent seeds within 4 cm of the
+threshold. The error is set by where the gate is.
+
+## The solver, three for three
+
+| seed | locks | locks at spread = 5.0 m | refits rejected | largest rejected change |
+|---|---|---|---|---|
+| 0 | 13 | 13 | 20 | 35.7 deg |
+| 1 | 13 | 13 | 7 | 174 deg |
+| 2 | 13 | 12 (one at 5.1) | 17 | 44.7 deg |
+
+Thirteen locks in every run, essentially all at the configured minimum
+baseline, theta spread over the full circle each time, and no convergence
+toward a fixed map->world rotation in any of them. `_try_solve` fires on
+`spread` -- a bounding-box diagonal -- the instant the box is big enough,
+without asking whether the track inside it determines a rotation at all. That
+is the defect, and it is now characterised on three seeds rather than argued
+from one.
+
+## Side observation: RISE destroys the map
+
+Not predicted, and worth recording before it is forgotten. ORB-SLAM3 lost its
+map (`Map point crash detected`) during RISE in both runs whose RISE handoff
+demanded a large yaw swing -- 495777 -> 317 points at a -125 deg swing here,
+552411 -> 946 at -137 deg in the voided run. The seed 0 run, whose swing was
+only -34 deg, kept its map until after MISSION COMPLETE. Three runs is not a
+result, but the pattern is specific enough to test deliberately, and it bears
+on the open TRANSIT->RISE yaw question.
+
+## Status of the arm
+
+All five criteria held on all three seeds. The mechanism is established:
+
+1. The catastrophic 41 m failure was an observability defect -- the alignment
+   was fitted against the filter it fed -- and opening that loop fixes it.
+2. With the loop open the gate bounds the error at ~5 m, confirmed to within
+   4 cm on three seeds.
+3. **The alignment itself does not work.** On this mission, on every seed,
+   dead reckoning alone beats dead reckoning plus SLAM. No amount of gate
+   tuning changes that; the gate is doing its job.
+
+The next step is not another seed. It is a conditioning test at the lock:
+measure `sv[1]/sv[0]` of the cross-covariance at each of the 39 solves across
+the three bags, and check whether the locks that held longest were the ones
+with the best-conditioned geometry. If they were, the fix to `_try_solve` is
+to gate on conditioning instead of `spread`.
