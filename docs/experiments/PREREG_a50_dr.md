@@ -563,3 +563,79 @@ dead reckoning 18 s after the first alignment, and the feedback loop
 truth-vs-estimate differences, on telemetry, and on the code -- not on any
 fit. The open question is why the solver locked at +152.4 deg when +14.4 deg
 was right, and the `reference_odom` run is the experiment that answers it.
+
+---
+
+# The reference experiment, seed 1 -- 2026-10-14
+
+Bag `a50_slamref_seed1_20261014_140856` (1894 s, 185.9 m), unit verified as
+seed 1 to 0.00038, launched with `dr_reference:=true` so the bridge fits its
+rotation against `/bluerov2/odometry/dr` -- a second filter fusing DVL, depth
+and IMU and no SLAM. Everything else unchanged.
+
+## The loop was the cause
+
+| | loop closed (12 Oct) | loop open |
+|---|---|---|
+| final position error | **41.04 m** | **1.68 m** |
+| mean / max error | 38.50 / 41.10 m | 2.81 / 5.08 m |
+| drift | 25.01 % | 0.90 % |
+| ATE RMSE | 39.35 m | 3.19 m |
+| bearing error, mean / max | 73.1 / 163.3 deg | 4.40 / 15.34 deg |
+| true range to turbine, max | 57.0 m | **26.2 m** |
+| time beyond 2x standoff | 715 s | **0 s** |
+
+Twenty-four times less final error, and the excursion is gone entirely: the
+vehicle never left the working envelope. The registration was being estimated
+against the filter it fed, and that is what produced the 41 m failure.
+
+## What the open loop reveals
+
+With an independent reference the alignment stops agreeing with itself, and
+the disagreement is large:
+
+- **13 separate re-alignments from scratch**, each triggered by `SLAM
+  alignment stale after 40 consecutive rejections`.
+- theta solutions spanning the circle: -159.2, +79.5, -168.4, -15.1, +55.0,
+  -133.5, -10.3, +142.0, -79.9, +44.0, +164.5, -48.2, +80.7, -138.8, -43.8,
+  +116.3, -156.9 deg.
+- refits rejected for proposing changes of 31, 65, 131, 148, 154, 164 and
+  **174 deg**.
+
+In the closed-loop runs **no refit was ever rejected**. That contrast is the
+result: the loop did not merely bias the estimate, it made the estimate
+unfalsifiable. The same solver, given a reference it does not drive,
+disagrees with itself by up to 174 deg.
+
+## SLAM is still not contributing
+
+Both filters ran in this bag, so they can be compared directly:
+
+| | final error | % of 185.9 m | max |
+|---|---|---|---|
+| SLAM-free reference filter (DVL + depth + IMU) | **0.47 m** | 0.25 % | 0.53 m |
+| primary filter (same, plus SLAM as pose0) | **1.68 m** | 0.90 % | 5.08 m |
+
+Adding SLAM makes the estimate 3.6x worse at the end and 10x worse at its
+worst. The gap between the primary filter and its own reference averages
+2.82 m and peaks at 4.97 m -- pressed against the bridge's 5.0 m rejection
+threshold. The error is bounded by the gate, not by SLAM being right: the
+filter is pulled off by poses that pass the gate until it reaches the
+threshold, then the gate catches the rest.
+
+So the honest statement of where this stands:
+
+1. The catastrophic failure is diagnosed and fixed. It was an observability
+   defect, not a SLAM accuracy problem, and the fix is a configuration change.
+2. The gate works now, because it finally has something independent to gate
+   against. That is what bounds the error at ~5 m.
+3. **The alignment itself still does not work.** It never found a stable
+   map->world rotation in 1894 s. On this mission dead reckoning alone beats
+   dead reckoning plus SLAM, and claiming SLAM-aided navigation on this
+   evidence would not survive review.
+
+The remaining problem is `_try_solve`: a rotation-only Procrustes fit over a
+75 s buffer, gated on `spread` (a bounding-box diagonal) rather than on
+whether the track in that buffer actually determines a rotation. Every one of
+the 13 locks fired at spread = 5.0 m exactly, the minimum. Seeds 0 and 2 of
+this arm, and a conditioning test at the lock, are the next steps.
