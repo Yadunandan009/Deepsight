@@ -741,3 +741,55 @@ final error and 34x on RMSE. Nothing here is salvageable by tuning the gate --
 the gate is doing its job. The defect is in `_try_solve`'s decision of *when*
 it is entitled to claim a rotation. Seed 2 remains, then the conditioning test
 at the lock.
+
+# Reference arm, seed 2 -- 2026-10-14: VOID for this arm
+
+Bag `a50_slamref_seed2_20261014_162539`, 1157 s, 158.1 m. **The a50 error
+model was not running.** `verify_dvl_model.py` recovers an operator that is
+the identity to 0.02, and the analyzer measures the DVL gains as 0.99997 /
+1.00009 / 1.00002 -- deviations of 0.009 %, 0.6 sigma, consistent with
+estimation noise alone. This bag carries the white-noise-only DVL, not the
+seed 2 unit, so it cannot be scored against a pre-registration written about
+the a50 arm.
+
+## How it got past the guard
+
+`dvl_error` defaults to `none`. The launch file runs the plain bridge and the
+a50 bridge under opposite conditions **with the same node name**, and
+`dvl_bridge.py` declares `error_seed` in both cases, defaulting `scale_sigma`
+and `misalign_sigma_deg` to zero. A launch that omits `dvl_error:=a50`
+therefore answers `ros2 param get /dvl_bridge error_seed` with exactly the
+seed that was asked for, while the error operator reduces to the mount
+rotation. The guard checked the seed and nothing else, so it passed.
+
+This is the second time this experiment has produced a white-noise bag under
+an a50 name. The first (2026-10-09, seed 0) came from a `PythonExpression`
+that silently yielded a non-existent filename; the conditions were introduced
+to make that impossible, and they did. This one came from the argument simply
+not being typed -- a different hole in the same wall.
+
+Fixed in `record_run.sh`: the guard now also reads `scale_sigma` and refuses
+to record when it is zero. `scale_sigma` is the parameter that actually
+separates the two bridges; `error_seed` never could.
+
+## What the bag does show
+
+It is a valid run of a different condition, and worth keeping for one reason:
+
+| | final | RMSE | max |
+|---|---|---|---|
+| SLAM-free reference (white-noise DVL) | **0.04 m** | **0.02 m** | 0.04 m |
+| primary filter (same, plus SLAM) | 4.97 m | 3.53 m | 4.98 m |
+
+Over 158 m the reference filter never exceeds 4 cm. Adding SLAM makes it
+**170x worse in RMSE**, and the gap to its own reference peaks at 4.97 m
+against the 5.0 m gate -- the same signature as seeds 0 and 1. The alignment
+is not merely failing to help a drifting estimate; it degrades one that is
+essentially exact. Thirteen locks again, all at `spread = 5.0 m`, theta
+spanning +161, +117, -24, +72, -115, -35, +142, -131, +40, +113, -57, -19,
++157 deg, with 15 refits rejected.
+
+Criterion 5 therefore holds in this run too, under a condition that makes it
+harder to pass, not easier. Criteria 1-4 are not scored: the arm is wrong.
+
+Seed 2 of the reference arm still needs to be flown, with `dvl_error:=a50`.
