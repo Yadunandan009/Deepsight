@@ -877,3 +877,114 @@ measure `sv[1]/sv[0]` of the cross-covariance at each of the 39 solves across
 the three bags, and check whether the locks that held longest were the ones
 with the best-conditioned geometry. If they were, the fix to `_try_solve` is
 to gate on conditioning instead of `spread`.
+
+# The conditioning test -- 2026-10-14: hypothesis refuted, defect relocated
+
+Registered expectation (end of the seed 2 section): that the locks which
+survived longest would be the better-conditioned ones, and that the fix to
+`_try_solve` would be to gate on conditioning instead of `spread`.
+
+**That is wrong, and the measurement says so clearly.**
+
+`eval/lock_conditioning.py` reconstructs every lock from the bags alone. The
+bridge copies `out.header = m.header` and overwrites only x,y, so each
+published pose matches its raw pose by header stamp and the transform it
+carried is recoverable exactly; locks are where publishing resumes after a
+silence. The reconstruction is checked rather than assumed -- theta recomputed
+from the reconstructed window against theta read off the transform agrees to a
+**median of 2.5 deg, 40 of 42 locks within 15 deg**. The two that fail (the
+first lock of seed 1, and one after a map crash) are dropped.
+
+## No conditioning metric predicts survival
+
+Spearman rank correlation against how long each of the 40 locks lasted:
+
+| metric | rho_s |
+|---|---|
+| `spread` (what the gate uses today) | **+0.09** |
+| axis ratio of the window | -0.31 |
+| rho (a rotation explains the pair) | +0.38 |
+| total SLAM-side scatter | -0.06 |
+| sigma_theta (std error of theta) | -0.36 |
+| residual RMS | -0.34 |
+
+`spread` has no predictive power at all, which was expected. But nothing else
+reaches 0.4 either. There is no conditioning gate to build.
+
+## Because the windows were never ill-conditioned
+
+| | median | extreme |
+|---|---|---|
+| sigma_theta | **0.39 deg** | 1.31 deg |
+| rho | **0.984** | 0.777 |
+| axis ratio | 0.087 | 0.468 |
+
+Every window pins theta down to under half a degree, with a rotation
+explaining the correspondence pair almost exactly. The earlier reading --
+ill-conditioned fits producing arbitrary rotations -- was wrong. **The fits
+are sharp. They sharply disagree with each other.** That is a different
+defect, and a conditioning gate cannot touch it.
+
+## There is no fixed rotation to find
+
+Sliding 40 s windows, 10 s apart, over each whole mission, with the bridge
+out of the loop entirely:
+
+| seed | median step between adjacent windows | max | circular dispersion of theta |
+|---|---|---|---|
+| 0 | 19.0 deg | 170 deg | 0.88 |
+| 1 | 21.4 deg | 175 deg | 0.97 |
+| 2 | 18.4 deg | 178 deg | 0.74 |
+
+Adjacent windows overlap by 75 % of their data and still disagree by ~20 deg,
+while each is internally sharp to 0.4 deg. Dispersion near 1 means theta
+covers the circle. The reference filter's own error cannot explain this: its
+worst case across all three runs is 0.62 m, about 7 deg over a 5 m baseline,
+and it varies far more slowly than the 10 s between windows.
+
+## What the SLAM track actually is
+
+`eval/slam_track_fidelity.py`:
+
+| | seed 0 | seed 2 |
+|---|---|---|
+| continuity | 15275 poses, median step 2.0 cm, **no step over 2 m** | 15710 poses, 2.0 cm, none |
+| local scale over 40 s | 0.93 [0.82, 1.14] | 0.95 [0.80, 1.03] |
+| path length SLAM vs truth | 428 m vs 181 m (**2.4x**) | 435 m vs 157 m (**2.8x**) |
+| best global similarity fit | scale 0.44, residual **16.8 m** | scale 0.24, residual **16.5 m** |
+| true track span | 53 x 37 m | 41 x 40 m |
+
+The track is continuous -- it is not being re-founded, so that explanation is
+closed off. Locally it is good: over 40 s the scale is within ~7 % of unity
+and a rotation fits to 0.4 deg. Globally it is wrong: the **best possible**
+similarity transform still leaves a **16.5-16.8 m RMS residual on a ~40 m
+trajectory**, and the integrated path is 2.4-2.8x too long.
+
+That residual is the floor for any global alignment whatsoever. No trigger,
+no gate, no conditioning test, no amount of re-fitting beats it, because it
+is not an alignment problem. ORB-SLAM3 is accumulating drift faster than a
+rigid map->world transform can absorb.
+
+## What this changes
+
+The three-seed result stands and its explanation is now complete: SLAM makes
+the filter 8-10x worse not because the alignment is triggered badly but
+because **there is nothing for the alignment to converge to.** Every repair
+aimed at `_try_solve` -- including the one registered above -- is aimed at the
+wrong layer.
+
+Three directions follow, and they are genuinely different claims for the
+paper, so the choice is not mine to make:
+
+1. **Make the SLAM work.** The drift is the defect; loop closure or scene
+   handling is the fix. Largest scope, and the only route to "GPS-denied
+   navigation using visual SLAM" as a global-pose claim.
+2. **Use SLAM locally, not globally.** The measurements say the local track
+   is good -- 0.93 scale, 0.4 deg rotation over 40 s -- and only the global
+   frame is wrong. Relative or incremental constraints are supported by this
+   evidence in a way a global pose is not. Smaller scope, and defensible.
+3. **Report what is measured.** DR for navigation, SLAM for mapping, with
+   this drift characterisation as a result in its own right.
+
+Nothing further should be run against the current bridge. The next experiment
+depends on which of the three this becomes.
