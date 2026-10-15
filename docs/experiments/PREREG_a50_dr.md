@@ -988,3 +988,91 @@ paper, so the choice is not mine to make:
 
 Nothing further should be run against the current bridge. The next experiment
 depends on which of the three this becomes.
+
+---
+
+# Camera.fps 30 -> 12: a clean negative result (2026-10-15)
+
+`docs/SLAM_FPS_AND_STEREO_CONFIG_AUDIT.md` established against the ORB-SLAM3
+source that `Camera.fps` was declared as 30 while Stonefish delivers 13.3 Hz,
+and that the value feeds `mMaxFrames` and so the keyframe-insertion and
+relocalisation timers. That is a real misconfiguration and it was worth
+correcting. The question registered here is narrower: **does correcting it
+change any measured outcome?**
+
+One run, seed 0, `a50_slamref12_seed0_20261015_180532`, verified by
+`verify_dvl_model.py` as carrying the seed 0 unit
+(max elementwise difference 0.00026).
+
+## Answer: no. Every metric lands inside the fps=30 three-seed spread.
+
+| | fps=30 (s0 / s1 / s2) | fps=12 (s0) | inside spread? |
+|---|---|---|---|
+| whole-run ATE RMSE | 3.40 / 3.19 / 4.06 m | **3.46 m** | yes |
+| best global similarity residual | 16.8 / 17.3 / 16.5 m | **17.5 m** | marginal, worse |
+| SLAM path length / truth | 2.37 / 1.83 / 2.77 | **1.90** | yes |
+| local scale, 40 s windows (median) | 0.93 / 0.91 / 0.95 | **0.91** | yes |
+| first SLAM pose to the filter | 235 / 7 / 219 s | **131 s** | yes |
+| filter vs its own reference, max | 4.98 / 4.97 / 4.96 m | **4.99 m** | yes (gate is 5.00) |
+| SLAM-free reference, final error | 0.11 / 0.47 / 0.57 m | **0.14 m** | yes |
+
+Seed 0 against seed 0, where the comparison is controlled:
+
+| | fps=30 | fps=12 |
+|---|---|---|
+| circular dispersion of theta over the run | 0.88 | 0.91 |
+| median theta step, adjacent 40 s windows | 19.0 deg | 18.4 deg |
+| alignment locks | 13 | 14 |
+| lock survival (median) | 20 s | 26 s |
+| sigma_theta within a window (median) | 0.43 deg | 0.34 deg |
+
+The windows got very slightly sharper and the locks lived very slightly
+longer, and neither moved the thing those would have to move: the rotation
+still disperses at 0.91 and still steps 18 deg between adjacent windows.
+**No fixed SLAM->world transform exists at 12 fps either.** The finding
+above is unchanged and the frame rate was not its cause.
+
+## A read that did not survive checking
+
+On the first pass the path-length ratio looked like the one real improvement
+(2.37 -> 1.90). Running fidelity on seeds 1 and 2 killed it: at 30 fps the
+ratio is already 1.83-2.77, so 1.90 is ordinary run-to-run variation. The
+same applies to the faster first lock (131 s against 7-235 s). Nothing here
+is attributable to the frame rate.
+
+The end-of-run error is worse (3.06 m against 0.90 m) but that number should
+not be used: both runs ride the 5.0 m rejection gate for the whole mission,
+so the final error measures where in the saw-tooth the run happened to stop.
+ATE RMSE is the honest summary and it is flat.
+
+## The RISE handoff, measured from the bag rather than the console
+
+`mapcollapse.py` counts Atlas collapses directly from `/bluerov2/map_points`
+(width*height), which does not depend on the bridge happening to hold an
+alignment at the time.
+
+| run | RISE yaw gap | Atlas collapse | survived RISE? |
+|---|---|---|---|
+| slamref seed 0 (fps 30) | -34 deg | t=1285 s, the final sample | yes |
+| slamref seed 2 (void) | -137 deg | during RISE | no |
+| slamref seed 2 | -125 deg | during RISE | no |
+| slamref12 seed 0 (fps 12) | **-139 deg** | **t=1100 s = the handoff** | **no** |
+
+In this run the collapse timestamp and the RISE transition are the same
+second: 483769 -> 1766, then 8731 -> 913 twenty-five seconds later, and the
+map never recovers (final 546).
+
+Two things sharpen the hypothesis:
+
+- **The gap is not a property of the seed.** Seed 0 gave -34 deg on
+  2026-10-14 and -139 deg today, same scenario, same seed. It is set by
+  wherever the final TRANSIT happens to end, which makes it a free variable
+  rather than a fixed cost of the mission.
+- The surviving run is the one with the smallest gap, and it is still n=1
+  on that side.
+
+This does not establish causation. What it does establish is that the
+timestamp lines up to the second, and that the quantity is free to be
+chosen rather than forced by geometry -- the controller's own handoff log
+("by geometry -- not a control-law artifact") is describing the consequence
+of pre-aligning to home, not a constraint on rising.
