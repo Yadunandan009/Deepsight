@@ -1,3 +1,6 @@
+%YAML:1.0
+File.version: "1.0"
+
 # WIDE-BASELINE ARM. Identical to bluerov2_stereo.yaml except for the
 # three numbers that encode the stereo baseline: Stereo.b, the T_c1_c2
 # translation, and RIGHT.P[0,3] = -fx*b.
@@ -21,8 +24,6 @@
 # Pair ONLY with scenarios/bluerov2_turbine_b30.scn, whose cameras sit at
 # y = +/-0.15. eval/check_stereo_baseline.py enforces the pairing.
 
-%YAML:1.0
-File.version: "1.0"
 
 Camera.type: "PinHole"
 

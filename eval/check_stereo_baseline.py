@@ -67,9 +67,45 @@ def from_yaml(path):
     return fx, b, tnorm, p03
 
 
+def opencv_parseable(path):
+    """ORB-SLAM3 reads settings with cv::FileStorage, which is NOT a YAML
+    parser. It requires the %YAML:1.0 directive on line 1 and rejects the
+    whole file otherwise -- including when the only thing above it is a
+    comment. That failure surfaces as
+
+        OpenCV(4.4.0) persistence.cpp:717: error: (-49:Unknown error code
+        -49) Input file is invalid in function 'open'
+
+    and kills the container at startup. The regex checks in this file are
+    happy with such a file, so ask OpenCV itself.
+    """
+    try:
+        import cv2
+    except ImportError:
+        return None                      # cannot check here; not a failure
+    # OpenCV 4.4 (the container's) returns isOpened()==False; 4.13 (the
+    # host's) raises instead. Treat both as "ORB-SLAM3 will not read this".
+    try:
+        fs = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+    except Exception:
+        return False
+    try:
+        return bool(fs.isOpened())
+    finally:
+        fs.release()
+
+
 def check(name, scn, yml):
     if not (os.path.exists(scn) and os.path.exists(yml)):
         print(f"  {name}: MISSING ({scn if not os.path.exists(scn) else yml})")
+        return False
+    parse = opencv_parseable(yml)
+    if parse is False:
+        print(f"  {name}: {os.path.basename(yml)} is NOT readable by "
+              f"cv::FileStorage.\n"
+              f"      ORB-SLAM3 will abort on startup. Most likely the "
+              f"%YAML:1.0 directive\n"
+              f"      is not the first line of the file.")
         return False
     s = from_scn(scn)
     fx, b, tnorm, p03 = from_yaml(yml)
@@ -82,8 +118,9 @@ def check(name, scn, yml):
     if "decl" in s:
         rows.insert(1, ('.scn baseline="..."', -s["decl"] / fx, b))
     bad = [r for r in rows if abs(r[1] - r[2]) > TOL]
+    pmsg = "" if parse else "  (cv::FileStorage check skipped: no cv2)"
     print(f"  {name}:  b = {b:.4f} m   mThDepth = b*ThDepth = "
-          f"{b * 40.0:.2f} m")
+          f"{b * 40.0:.2f} m{pmsg}")
     for label, got, want in rows:
         flag = "  <-- MISMATCH" if abs(got - want) > TOL else ""
         print(f"      {label:22s} implies b = {got:.4f}{flag}")
