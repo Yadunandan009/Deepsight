@@ -773,6 +773,12 @@ class InspectV8(Node):
                 throttle_duration_sec=1.0)
 
     def slam_cb(self, m):
+        # Liveness only -- the pose itself is never read here, which is
+        # why this node needed no change when the SLAM frame bug was
+        # found (docs/SLAM_FRAME_ENU_NED.md). If you ever start using
+        # m.pose, convert it first:
+        #     from stonefish_bluerov2.frames import enu_to_ned_pose
+        # It arrives in ENU (z up); this workspace is NED (z down).
         self.slam_t = time.time()
 
     def map_cb(self, m):

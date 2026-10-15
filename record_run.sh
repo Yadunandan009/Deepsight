@@ -7,8 +7,15 @@
 # The arm and seed go in the bag name, because three runs that differ only
 # by a launch argument are otherwise impossible to tell apart afterwards.
 set -euo pipefail
-ARM="${1:?usage: record_run.sh <dr|slam|gated> <seed>}"
-SEED="${2:?usage: record_run.sh <dr|slam|gated> <seed>}"
+# ARM is free text and goes straight into the bag name. It is the only
+# durable record of which arm a bag belongs to, so it must name the arm
+# actually flown. Anything other than "dr" means SLAM is expected.
+#   dr         dead reckoning only
+#   slamref    reference arm, b=0.145, Camera.fps 30
+#   slamref12  reference arm, b=0.145, Camera.fps 12
+#   slamb30    wide baseline, b=0.30,  Camera.fps 12
+ARM="${1:?usage: record_run.sh <arm> <seed>  (see the list above)}"
+SEED="${2:?usage: record_run.sh <arm> <seed>}"
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BAG_ROOT="/media/yadunandan/more space/bags"
 BAG="${BAG_ROOT}/a50_${ARM}_seed${SEED}_$(date +%Y%m%d_%H%M%S)"
@@ -67,49 +74,28 @@ if [ -z "$BAD" ]; then
     BAD="dvl_bridge has scale_sigma=0, so the a50 error model is OFF. Relaunch with dvl_error:=a50"
   fi
 fi
-# The stereo baseline is the wide-baseline experiment's ONLY variable, and
-# nothing else in this script would notice it being wrong. Two numbers have
-# to agree and both are read from the running system, not from the tree:
+# The stereo baseline is the wide-baseline experiment's ONLY variable and
+# nothing else here would notice it being wrong. Both sides are read from
+# the RUNNING system by eval/check_stereo_baseline.py --live:
 #
-#   what Stonefish is simulating  -- right CameraInfo, P[3] = -fx*b
-#   what ORB-SLAM3 is solving     -- Stereo.b in the yaml bind-mounted into
-#                                    the live container
+#   simulator -- the .scn on the stonefish process command line, which is
+#                the INSTALLED copy, so a source edit without a colcon
+#                build is caught too
+#   ORB-SLAM3 -- Stereo.b in the yaml bind-mounted into the container
 #
-# eval/check_stereo_baseline.py checks the files on disk and cannot see
-# either of these. A stale colcon build, or launching bluerov2_turbine with
-# bluerov2_stereo_b30.yaml, passes that check and produces a bag whose
-# recorded geometry is not the geometry that was flown.
-LIVE_B="$(python3 "${WS}/eval/live_stereo_baseline.py" --timeout 10 2>/dev/null || true)"
-SLAM_CFG=""
-SLAM_B=""
-if docker inspect orb_slam3_running >/dev/null 2>&1; then
-  # Pick the mount by CONTENT, not by name. bluerov2-stereo-ros-params.yaml
-  # matches any sensible name pattern but carries no Stereo.b, and docker
-  # does not promise to list mounts in the order they were given.
-  for m in $(docker inspect -f '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' \
-             orb_slam3_running 2>/dev/null || true); do
-    [ -f "$m" ] || continue
-    grep -q '^Stereo.b:' "$m" || continue
-    SLAM_CFG="$m"
-    SLAM_B="$(grep -m1 '^Stereo.b:' "$m" | awk '{print $2}')"
-    break
-  done
-fi
-
-if [ -z "$BAD" ]; then
-  if [ -z "$LIVE_B" ]; then
-    echo "WARNING: no right CameraInfo -- simulated stereo baseline unverified" >&2
-  elif [ "$ARM" != "dr" ] && [ -z "$SLAM_B" ]; then
-    echo "WARNING: could not read Stereo.b from the running SLAM container" >&2
-    echo "         -- simulated baseline is ${LIVE_B} m, SLAM side unverified" >&2
-  elif [ "$ARM" != "dr" ] && [ -n "$SLAM_B" ]; then
-    # bash has no floats; compare at 1 mm in awk
-    if ! awk -v a="$LIVE_B" -v b="$SLAM_B" \
-         'BEGIN{exit !(a-b<0.002 && b-a<0.002)}'; then
-      BAD="stereo baseline mismatch: Stonefish is simulating ${LIVE_B} m but \
-ORB-SLAM3 is solving for ${SLAM_B} m (from ${SLAM_CFG}). The scenario and the \
-stereo yaml are from different arms."
-    fi
+# An earlier version of this read the baseline from the right camera's
+# CameraInfo P[3] = -fx*b. Stonefish publishes P[3] = 0 and never puts the
+# baseline there, so that check refused every SLAM arm, including the
+# reference. Do not reintroduce it.
+BASE_OUT="$(python3 "${WS}/eval/check_stereo_baseline.py" --live 2>&1 || true)"
+BASE_RC=$?
+LIVE_B="$(printf '%s' "$BASE_OUT" | sed -n 's/.*both sides are b = \([0-9.]*\).*/\1/p')"
+if [ -z "$BAD" ] && [ "$ARM" != "dr" ]; then
+  if printf '%s' "$BASE_OUT" | grep -q "MISMATCH:"; then
+    BAD="$(printf '%s' "$BASE_OUT" | sed -n '/MISMATCH:/,$p' | tr '\n' ' ')"
+  elif printf '%s' "$BASE_OUT" | grep -q "INCOMPLETE:"; then
+    echo "WARNING: stereo baseline unverified --" >&2
+    printf '%s\n' "$BASE_OUT" | sed 's/^/         /' >&2
   fi
 fi
 
@@ -128,7 +114,7 @@ if [ -n "$BAD" ]; then
 fi
 
 echo "arm=${ARM} seed=${SEED}  (live seed='${LIVE_SEED:-?}' scale_sigma='${LIVE_SIGMA:-?}' slam_pubs='${SLAM_PUBS:-?}')"
-echo "  stereo baseline: sim='${LIVE_B:-?}' m slam='${SLAM_B:-?}' m  (gate = b*ThDepth)"
+echo "  stereo baseline: ${LIVE_B:-unverified} m (both sides agree; gate = b*ThDepth)"
 echo "recording ${#TOPICS[@]} topics to ${BAG}"
 echo "Ctrl+C to stop -- let it flush, do not kill it, or the bag loses its footer."
 ros2 bag record "${TOPICS[@]}" -o "$BAG"

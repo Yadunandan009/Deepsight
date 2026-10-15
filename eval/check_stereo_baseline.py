@@ -44,7 +44,9 @@ def from_scn(path):
             raise SystemExit(f"{path}: no camera_{side}")
         blk = m.group(0)
         o = re.search(r'<origin xyz="([-\d.eE+ ]+)"', blk)
-        out[side] = float(o.group(1).split()[1])
+        xyz = [float(v) for v in o.group(1).split()]
+        out[side] = xyz[1]
+        out[side + "_xyz"] = xyz
         b = re.search(r'baseline="([-\d.eE+]+)"', blk)
         if b:
             out["decl"] = float(b.group(1))
@@ -95,6 +97,62 @@ def opencv_parseable(path):
         fs.release()
 
 
+
+def self_occlusion(scn, cams):
+    """Does the vehicle's own body sit inside a camera's frustum?
+
+    Widening the baseline moves the cameras outboard into the hull
+    envelope. At y=+/-0.15 and the stock x=0.16 mount, 676 hull vertices
+    fall inside the 75x60 deg frustum at 3.3 cm, and ORB-SLAM3 tracks
+    features on the vehicle instead of the structure -- observed live
+    2026-10-15, which cost a launch.
+
+    Vertex sampling, so it under-reports a large face seen edge-on; the
+    inflated frustum is the margin against that. Returns a list of
+    complaints.
+    """
+    import glob
+    data = os.path.join(os.path.dirname(scn), "..", "data", "bluerov2")
+    objs = sorted(glob.glob(os.path.join(data, "bluerov2*.obj")))
+    objs = [o for o in objs if "_phy" not in o]
+    if not objs:
+        return [], []
+    try:
+        import numpy as np
+    except ImportError:
+        return [], []
+    v = []
+    for o in objs:
+        with open(o) as fh:
+            v += [[float(x) for x in l.split()[1:4]]
+                  for l in fh if l.startswith("v ")]
+    body = np.array(v)
+    # Only the REAL frustum blocks a launch. The reference arm trips an
+    # inflated one (825 verts at 7.4 cm in 110x95) and has always worked,
+    # so treat the margin as advisory or it cries wolf on the known-good
+    # configuration.
+    errs, warns = [], []
+    for side in ("left", "right"):
+        cam = np.array(cams[side + "_xyz"])
+        pos = " ".join(f"{c:.3f}" for c in cam)
+        d = body - cam
+        d = d[d[:, 0] > 0.002]
+        if not len(d):
+            continue
+        ah = np.degrees(np.arctan2(np.abs(d[:, 1]), d[:, 0]))
+        av = np.degrees(np.arctan2(np.abs(d[:, 2]), d[:, 0]))
+        for (hf, vf, bucket, label) in (
+                (75.0, 60.0, errs, "IN FRAME"),
+                (110.0, 95.0, warns, "inside a 110x95 margin frustum")):
+            m = (ah < hf / 2) & (av < vf / 2)
+            if m.sum():
+                near = np.linalg.norm(d[m], axis=1).min()
+                bucket.append(f"camera_{side} at ({pos}): {int(m.sum())} body "
+                              f"vertices {label}, nearest {near:.3f} m")
+                break
+    return errs, warns
+
+
 def check(name, scn, yml):
     if not (os.path.exists(scn) and os.path.exists(yml)):
         print(f"  {name}: MISSING ({scn if not os.path.exists(scn) else yml})")
@@ -118,16 +176,119 @@ def check(name, scn, yml):
     if "decl" in s:
         rows.insert(1, ('.scn baseline="..."', -s["decl"] / fx, b))
     bad = [r for r in rows if abs(r[1] - r[2]) > TOL]
+    occ, occ_warn = self_occlusion(scn, s)
     pmsg = "" if parse else "  (cv::FileStorage check skipped: no cv2)"
     print(f"  {name}:  b = {b:.4f} m   mThDepth = b*ThDepth = "
           f"{b * 40.0:.2f} m{pmsg}")
     for label, got, want in rows:
         flag = "  <-- MISMATCH" if abs(got - want) > TOL else ""
         print(f"      {label:22s} implies b = {got:.4f}{flag}")
-    return not bad
+    for c in occ:
+        print(f"      SELF-OCCLUSION: {c}")
+    for c in occ_warn:
+        print(f"      note: {c} (advisory -- the reference arm does this too)")
+    return not bad and not occ
+
+
+
+def resolve_scn(path):
+    """A turbine scenario includes the robot scenario that holds the
+    cameras. Follow one level of <include> to find it."""
+    txt = open(path).read()
+    if 'name="camera_left"' in txt:
+        return path
+    for m in re.finditer(r'<include file="([^"]+)"', txt):
+        if m.group(1).lstrip().startswith("<!--"):
+            continue
+        cand = os.path.join(os.path.dirname(path),
+                            os.path.basename(m.group(1)))
+        if os.path.exists(cand) and 'name="camera_left"' in open(cand).read():
+            return cand
+    return None
+
+
+def live_check():
+    """Compare what the SIMULATOR loaded against what SLAM is solving.
+
+    Both sides are read from the running system:
+
+      simulator -- the scenario path on the stonefish process command
+                   line. This is the installed copy, so it also catches a
+                   source tree that was edited without a colcon build.
+      SLAM      -- Stereo.b in the yaml bind-mounted into the container.
+
+    An earlier version of this read the baseline from the right camera's
+    CameraInfo P[3]. Stonefish publishes P[3] = 0 and never encodes the
+    baseline there, so that check refused every SLAM arm. Do not
+    reintroduce it.
+    """
+    import subprocess
+    print("live check (running system, not the source tree)\n")
+    sim_b = sim_scn = None
+    try:
+        ps = subprocess.run(["ps", "-eo", "args"], capture_output=True,
+                            text=True, timeout=10).stdout
+    except Exception:
+        ps = ""
+    for line in ps.splitlines():
+        if "stonefish_simulator" in line and "grep" not in line:
+            for tok in line.split():
+                if tok.endswith(".scn") and os.path.exists(tok):
+                    sim_scn = tok
+            break
+    if sim_scn:
+        robot = resolve_scn(sim_scn)
+        if robot:
+            sim_b = from_scn(robot)["b"]
+            print(f"  simulator : {os.path.basename(sim_scn)}")
+            print(f"              -> {os.path.basename(robot)}   "
+                  f"b = {sim_b:.4f} m")
+        else:
+            print(f"  simulator : {sim_scn} (no camera_left found)")
+    else:
+        print("  simulator : not running, or no .scn on its command line")
+
+    slam_b = slam_cfg = None
+    try:
+        mounts = subprocess.run(
+            ["docker", "inspect", "-f",
+             r'{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}',
+             "orb_slam3_running"],
+            capture_output=True, text=True, timeout=10).stdout
+    except Exception:
+        mounts = ""
+    for m in mounts.split():
+        if os.path.isfile(m):
+            for l in open(m):
+                if l.startswith("Stereo.b:"):
+                    slam_b, slam_cfg = float(l.split()[1]), m
+                    break
+        if slam_b is not None:
+            break
+    if slam_b is not None:
+        print(f"  ORB-SLAM3 : {os.path.basename(slam_cfg)}   "
+              f"b = {slam_b:.4f} m")
+    else:
+        print("  ORB-SLAM3 : container not running, or no Stereo.b in its "
+              "mounts")
+
+    print()
+    if sim_b is None or slam_b is None:
+        print("  INCOMPLETE: one side could not be read. Nothing is "
+              "asserted.")
+        return 0
+    if abs(sim_b - slam_b) > TOL:
+        print(f"  MISMATCH: the simulator is running b = {sim_b:.4f} m while "
+              f"ORB-SLAM3\n  solves for b = {slam_b:.4f} m. Different arms.")
+        return 1
+    print(f"  AGREE: both sides are b = {sim_b:.4f} m "
+          f"(close-depth gate {sim_b * 40:.2f} m).")
+    return 0
 
 
 def main():
+    if "--live" in sys.argv:
+        return live_check()
     if len(sys.argv) == 3:
         arms = [("explicit pair", sys.argv[1], sys.argv[2])]
     else:
@@ -138,8 +299,8 @@ def main():
     if ok:
         print("  all arms self-consistent.")
         return 0
-    print("  MISMATCH. Do not launch: the recorded geometry would not be\n"
-          "  the simulated geometry.")
+    print("  PROBLEM. Do not launch: the geometry recorded would not be the\n"
+          "  geometry simulated, or a camera is looking at the vehicle.")
     return 1
 
 

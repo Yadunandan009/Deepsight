@@ -31,6 +31,20 @@ from enum import Enum, auto
 from dataclasses import dataclass, field
 from typing import Optional
 
+# The SLAM wrapper publishes REP-103 (z up); this workspace is NED (z down).
+# See stonefish_bluerov2/frames.py and docs/SLAM_FRAME_ENU_NED.md.
+# Unconditional here: only slam_pose_bridge carries the 'slam_frame'
+# escape hatch, because only its output was measured in the runs that
+# might need reproducing.
+try:
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace
+except ImportError:                      # running straight from scripts/
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.join(
+        _os.path.dirname(_os.path.abspath(__file__)), '..'))
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace
+
 try:
     import cv2
     import numpy as np
@@ -228,9 +242,15 @@ class DeepSightV4(Node):
         self.yaw = math.atan2(2*(q.w*q.z+q.x*q.y), 1-2*(q.y*q.y+q.z*q.z))
 
     def _slam_cb(self, m):
-        self.sx   =  m.pose.position.x
-        self.sy   =  m.pose.position.y
-        self.sz   = -m.pose.position.z   # invert depth
+        # This used to negate z alone, with the comment "invert depth".
+        # That was half of the real conversion: the SLAM pose is ENU and
+        # this workspace is NED, so y inverts too. Negating z by itself
+        # left the horizontal track mirrored, which is the defect
+        # docs/SLAM_FRAME_ENU_NED.md traces.
+        enu_to_ned_pose_inplace(m.pose)
+        self.sx   = m.pose.position.x
+        self.sy   = m.pose.position.y
+        self.sz   = m.pose.position.z
         q = m.pose.orientation
         self.syaw = math.atan2(2*(q.w*q.z+q.x*q.y), 1-2*(q.y*q.y+q.z*q.z))
         self.slam_t  = time.time()

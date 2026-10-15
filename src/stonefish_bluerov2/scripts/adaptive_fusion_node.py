@@ -41,6 +41,20 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2
 from std_msgs.msg import Float32, String
 
+# The SLAM wrapper publishes REP-103 (z up); this workspace is NED (z down).
+# See stonefish_bluerov2/frames.py and docs/SLAM_FRAME_ENU_NED.md.
+# Unconditional here: only slam_pose_bridge carries the 'slam_frame'
+# escape hatch, because only its output was measured in the runs that
+# might need reproducing.
+try:
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace
+except ImportError:                      # running straight from scripts/
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.join(
+        _os.path.dirname(_os.path.abspath(__file__)), '..'))
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace
+
 
 # ── Tuneable constants ────────────────────────────────────────────
 MAP_PTS_LOCK_MIN  = 50        # minimum map points before offset can be locked
@@ -132,6 +146,7 @@ class AdaptiveFusionNode(Node):
         self._ekf_full = msg
 
     def _slam_cb(self, msg: PoseStamped):
+        enu_to_ned_pose_inplace(msg.pose)
         sx = msg.pose.position.x
         sy = msg.pose.position.y
         sz = msg.pose.position.z

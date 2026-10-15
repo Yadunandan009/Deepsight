@@ -19,6 +19,20 @@ from sensor_msgs.msg import PointCloud2
 import math, time, csv, os
 from enum import Enum, auto
 
+# The SLAM wrapper publishes REP-103 (z up); this workspace is NED (z down).
+# See stonefish_bluerov2/frames.py and docs/SLAM_FRAME_ENU_NED.md.
+# Unconditional here: only slam_pose_bridge carries the 'slam_frame'
+# escape hatch, because only its output was measured in the runs that
+# might need reproducing.
+try:
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace
+except ImportError:                      # running straight from scripts/
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.join(
+        _os.path.dirname(_os.path.abspath(__file__)), '..'))
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace
+
 class PID:
     def __init__(self, kp, ki, kd, out_min=-1.0, out_max=1.0, ilimit=5.0):
         self.kp, self.ki, self.kd = kp, ki, kd
@@ -133,6 +147,7 @@ class BlueROV2Controller(Node):
         self.yaw = math.atan2(2*(q.w*q.z+q.x*q.y), 1-2*(q.y*q.y+q.z*q.z))
 
     def slam_cb(self, msg):
+        enu_to_ned_pose_inplace(msg.pose)
         self.slam_pos = msg.pose.position
         self.slam_last_update = time.time()
         self.slam_active = True

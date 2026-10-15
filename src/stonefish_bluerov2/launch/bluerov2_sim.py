@@ -38,6 +38,20 @@ def generate_launch_description():
     )
     dr_reference = LaunchConfiguration('dr_reference')
 
+    # 2a1b. Frame of the incoming SLAM pose. The ORB-SLAM3 wrapper emits
+    # REP-103 (z up); this workspace is NED (z down). Until 2026-10-16
+    # nothing converted, and slam_pose_bridge's horizontal-rotation model
+    # cannot represent the difference -- see docs/SLAM_FRAME_ENU_NED.md.
+    # 'ned' takes the pose as-is and reproduces every run before that date.
+    slam_frame_arg = DeclareLaunchArgument(
+        'slam_frame',
+        default_value='enu',
+        description="Frame the SLAM pose arrives in: 'enu' converts it to "
+                    "this workspace's NED (correct), 'ned' passes it "
+                    "through unchanged (reproduces pre-2026-10-16 runs)."
+    )
+    slam_frame = LaunchConfiguration('slam_frame')
+
     # 2a2. Rendering quality -- was hardcoded to 'high', which drives
     # sustained GPU load/heat hard enough to cause thermal throttling on
     # this laptop (observed: 86C, and camera framerate visibly decaying
@@ -130,7 +144,9 @@ def generate_launch_description():
         # substitution object, and handing one straight to parameters= is what
         # silently voided the first a50 run.
         parameters=[{'reference_odom': ParameterValue(bridge_reference_odom,
-                                                      value_type=str)}],
+                                                      value_type=str),
+                     'slam_frame': ParameterValue(slam_frame,
+                                                  value_type=str)}],
     )
 
     # 5b. DVL Bridge
@@ -322,6 +338,7 @@ def generate_launch_description():
         dvl_error_arg,
         dvl_seed_arg,
         dr_reference_arg,
+        slam_frame_arg,
         launch_include,
         ardusim_patch,
         depth_bridge,

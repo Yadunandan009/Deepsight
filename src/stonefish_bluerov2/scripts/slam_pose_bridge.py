@@ -55,6 +55,19 @@ from collections import deque
 import math
 import time
 
+# The SLAM wrapper publishes REP-103 (z up); this workspace is NED (z down).
+# Nothing converted between them until 2026-10-16, and the bridge's
+# horizontal-rotation model cannot represent the difference -- see
+# stonefish_bluerov2/frames.py and docs/SLAM_FRAME_ENU_NED.md.
+try:
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace, FRAME_NOTE
+except ImportError:                      # running straight from scripts/
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.join(
+        _os.path.dirname(_os.path.abspath(__file__)), '..'))
+    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace, FRAME_NOTE
+
 
 def wrap(a):
     while a > math.pi:  a -= 2 * math.pi
@@ -226,10 +239,21 @@ class SlamPoseBridge(Node):
         # diverge in ways the open-loop version cannot. Expect to need the
         # rejection/re-align thresholds retuned, and watch the first runs
         # rather than batching them.
+        # 'enu'  convert the incoming SLAM pose to NED (correct, default)
+        # 'ned'  take it as-is -- reproduces every run before 2026-10-16,
+        #        kept so the pre-fix behaviour can be re-measured rather
+        #        than remembered.
+        self.declare_parameter('slam_frame', 'enu')
         self.declare_parameter('reference_odom', '/bluerov2/odometry/filtered')
         self.declare_parameter('output_topic', '/bluerov2/robot_pose_slam_ekf')
         reference_odom = self.get_parameter('reference_odom').value
         output_topic = self.get_parameter('output_topic').value
+        slam_frame = str(
+            self.get_parameter('slam_frame').value).strip().lower()
+        if slam_frame not in ('enu', 'ned'):
+            raise ValueError(
+                f"slam_frame must be 'enu' or 'ned', got {slam_frame!r}")
+        self.slam_is_enu = (slam_frame == 'enu')
 
         self.pub = self.create_publisher(
             PoseWithCovarianceStamped,
@@ -248,7 +272,13 @@ class SlamPoseBridge(Node):
             self.map_cb, 10)
         self.get_logger().info(
             f'SLAM pose bridge started (reference_odom={reference_odom}, '
-            f'output={output_topic})')
+            f'output={output_topic}, slam_frame={slam_frame})')
+        self.get_logger().info(
+            f'  {FRAME_NOTE}' if self.slam_is_enu else
+            '  slam_frame=ned: NO conversion applied. This reproduces '
+            'the pre-2026-10-16 behaviour, in which no fixed '
+            'map-to-world rotation exists. Intended only for '
+            'reproducing old runs.')
 
     def ekf_cb(self, m):
         self.ekf_x = m.pose.pose.position.x
@@ -364,6 +394,8 @@ class SlamPoseBridge(Node):
             f'n={n} spread={spread:.1f}m map_pts={self.map_pts}')
 
     def slam_cb(self, m):
+        if self.slam_is_enu:
+            enu_to_ned_pose_inplace(m.pose)
         sx = m.pose.position.x
         sy = m.pose.position.y
 

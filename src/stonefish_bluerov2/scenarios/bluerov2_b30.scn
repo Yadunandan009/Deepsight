@@ -7,7 +7,15 @@
      against a structure whose nearest surface is a median 8.1 m away;
      b=0.30 moves it to 12.0 m. Pair ONLY with
      slam_params/bluerov2_stereo_b30.yaml -- eval/check_stereo_baseline.py
-     enforces that. -->
+     enforces that.
+
+     The cameras also move FORWARD, x 0.16 -> 0.22. At y=+/-0.15 and
+     x=0.16 the hull enters the 75x60 deg frustum (676 mesh vertices,
+     nearest 3.3 cm) and the left/right images are mostly the vehicle's
+     own body -- observed live 2026-10-15. The body's nose is at
+     x=+0.222, and x=0.22 is clear even at an inflated 110x95 deg
+     frustum. The 6 cm forward shift is a constant offset in the SLAM
+     frame and is absorbed by the alignment's translation term. -->
 
 
 <!-- Environment moved to top-level scenario -->
@@ -328,14 +336,14 @@
 
          <sensor name="camera_left" rate="30.0" type="camera">
             <specs resolution_x="640" resolution_y="480" horizontal_fov="75.0"/>
-            <origin xyz="0.16 -0.15 0.15" rpy="1.571 0.0 1.571"/>
+            <origin xyz="0.22 -0.15 0.15" rpy="1.571 0.0 1.571"/>
             <link name="base_link"/>
             <ros_publisher topic="/bluerov2/left"/>
         </sensor>
         
         <sensor name="camera_right" rate="30.0" type="camera">
             <specs resolution_x="640" resolution_y="480" horizontal_fov="75.0" baseline="-125.11"/>
-            <origin xyz="0.16 0.15 0.15" rpy="1.571 0.0 1.571"/>
+            <origin xyz="0.22 0.15 0.15" rpy="1.571 0.0 1.571"/>
             <link name="base_link"/>
             <ros_publisher topic="/bluerov2/right"/>
         </sensor>

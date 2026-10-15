@@ -47,7 +47,20 @@ length of a path and it cannot change scale. Measured:
 Whatever dominates the error budget changes lengths, so it is not a
 rotation ambiguity.
 
-## 4. The actual mechanism: the stereo rig cannot see scale at the mission's range
+## 4. REFUTED 2026-10-16 -- was: the stereo rig cannot see scale
+
+> **This section is wrong.** The wide-baseline run
+> (`docs/experiments/PREREG_wide_baseline.md`) moved the close-depth
+> gate from 5.80 m to 12.00 m and changed no navigation metric. The
+> actual defect is that the SLAM pose arrives in a z-up (ENU) frame
+> while this workspace is NED, and the bridge fits a horizontal
+> rotation that cannot represent the difference -- see
+> `docs/SLAM_FRAME_ENU_NED.md`. Sections 1-3 above stand: the failure
+> is still not perceptual aliasing. The gate arithmetic below is
+> correct as arithmetic; it is simply not what was limiting the
+> system. Kept for the record.
+
+## 4. (refuted) The stereo rig cannot see scale at the mission's range
 
 `slam_params/bluerov2_stereo.yaml`: `fx = 417.03`, `Stereo.b = 0.145`,
 `Stereo.ThDepth = 40.0`. ORB-SLAM3 computes
