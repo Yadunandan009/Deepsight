@@ -31,7 +31,7 @@ source /opt/ros/jazzy/setup.bash
 
 ### Stack Overview
 ```
-QGroundControl <--MAVLINK--> ArduSub SITL <--JSON--> ardusim_patch.py <--> stonefish_ros2 (simulator)
+stonefish_ros2 (simulator) <--> ardusim_patch.py   [ArduSub SITL path exists but is NOT used]
                                       |
                                       +--> robot_localization (EKF fusion)
                                       +--> bluerov2_interface (MAVLink bridge)
@@ -59,18 +59,35 @@ Located in `src/stonefish_bluerov2/scenarios/*.scn` - XML descriptions of underw
 
 ## Running Simulations
 
+**ArduSub SITL is NOT part of this.** Nothing below starts it and nothing
+below needs it. `ardusim_patch` is a node inside `bluerov2_sim.py` and comes
+up with the launch; it is not a step. Earlier revisions of this file said
+otherwise and the stale instruction repeatedly produced the wrong sequence.
+
 ```bash
-# 1. Start ArduSub SITL (from ardupilot dir)
-cd ardupilot
-sim_vehicle.py -v ArduSub --model JSON --map -L PHILL -m --streamrate=-1
+# 1. Simulator, sensors, filters (from ros2_ws).
+#    dvl_error:=a50    switch ON the datasheet DVL error model. The default
+#                      is 'none' (white noise only) -- omitting this silently
+#                      produces a bag that is not part of the a50 arms.
+#    dvl_seed:=<int>   which simulated DVL unit. Fixed per arm.
+#    dr_reference:=true  run the SLAM-free reference filter and point the
+#                      SLAM alignment at it instead of at the primary filter.
+#                      Required: without it the alignment is fitted against
+#                      the filter it feeds and the result is unfalsifiable.
+ros2 launch stonefish_bluerov2 bluerov2_sim.py \
+    scenario:=bluerov2_turbine dvl_error:=a50 dvl_seed:=0 dr_reference:=true
 
-# 2. Launch simulation (from ros2_ws)
-ros2 launch stonefish_bluerov2 bluerov2_sim.py scenario:=bluerov2_turbine
+# 2. ORB-SLAM3 in Docker -- SLAM arms only. Also tees the container console
+#    (loop closures, Atlas events) to slam_atlas/orb_slam3_console_*.log,
+#    which is the only place those diagnostics are recorded.
+bash run_stereo_slam.sh
 
-# 3. Open QGroundControl, set vehicle to Vectored-6DOF, enable joystick
+# 3. Mission controller, once /bluerov2/map_points is climbing.
+python3 src/stonefish_bluerov2/scripts/bluerov2_autonomous_controller.py
 
-# Record mission bag
-bash record_mission.sh
+# 4. Record. Refuses to start if the live dvl_bridge seed or scale_sigma
+#    disagree with the arm you named, or if SLAM is not publishing.
+bash record_run.sh <arm> <seed>
 ```
 
 ## Key Python Scripts
@@ -95,6 +112,9 @@ bash record_mission.sh
 - `/bluerov2/altitude`, `/bluerov2/battery`, `/bluerov2/bottle_pressure`
 
 ## Notes
-- ArduSub must be running before launching stonefish simulation
+- ArduSub SITL is not used. See Running Simulations above.
+- `Camera.fps` in `slam_params/bluerov2_stereo.yaml` must match the
+  measured camera rate, not the rate declared in the .scn. ORB-SLAM3
+  treats it as a frame count.
 - stonefish_ros2 v1.3 required (matching Stonefish library v1.3)
 - BlueROV2 uses Vectored-6DOF frame in QGroundControl for 6 thruster configuration
