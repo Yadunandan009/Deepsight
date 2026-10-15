@@ -9,6 +9,7 @@
 set -euo pipefail
 ARM="${1:?usage: record_run.sh <dr|slam|gated> <seed>}"
 SEED="${2:?usage: record_run.sh <dr|slam|gated> <seed>}"
+WS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BAG_ROOT="/media/yadunandan/more space/bags"
 BAG="${BAG_ROOT}/a50_${ARM}_seed${SEED}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BAG_ROOT"
@@ -66,6 +67,52 @@ if [ -z "$BAD" ]; then
     BAD="dvl_bridge has scale_sigma=0, so the a50 error model is OFF. Relaunch with dvl_error:=a50"
   fi
 fi
+# The stereo baseline is the wide-baseline experiment's ONLY variable, and
+# nothing else in this script would notice it being wrong. Two numbers have
+# to agree and both are read from the running system, not from the tree:
+#
+#   what Stonefish is simulating  -- right CameraInfo, P[3] = -fx*b
+#   what ORB-SLAM3 is solving     -- Stereo.b in the yaml bind-mounted into
+#                                    the live container
+#
+# eval/check_stereo_baseline.py checks the files on disk and cannot see
+# either of these. A stale colcon build, or launching bluerov2_turbine with
+# bluerov2_stereo_b30.yaml, passes that check and produces a bag whose
+# recorded geometry is not the geometry that was flown.
+LIVE_B="$(python3 "${WS}/eval/live_stereo_baseline.py" --timeout 10 2>/dev/null || true)"
+SLAM_CFG=""
+SLAM_B=""
+if docker inspect orb_slam3_running >/dev/null 2>&1; then
+  # Pick the mount by CONTENT, not by name. bluerov2-stereo-ros-params.yaml
+  # matches any sensible name pattern but carries no Stereo.b, and docker
+  # does not promise to list mounts in the order they were given.
+  for m in $(docker inspect -f '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' \
+             orb_slam3_running 2>/dev/null || true); do
+    [ -f "$m" ] || continue
+    grep -q '^Stereo.b:' "$m" || continue
+    SLAM_CFG="$m"
+    SLAM_B="$(grep -m1 '^Stereo.b:' "$m" | awk '{print $2}')"
+    break
+  done
+fi
+
+if [ -z "$BAD" ]; then
+  if [ -z "$LIVE_B" ]; then
+    echo "WARNING: no right CameraInfo -- simulated stereo baseline unverified" >&2
+  elif [ "$ARM" != "dr" ] && [ -z "$SLAM_B" ]; then
+    echo "WARNING: could not read Stereo.b from the running SLAM container" >&2
+    echo "         -- simulated baseline is ${LIVE_B} m, SLAM side unverified" >&2
+  elif [ "$ARM" != "dr" ] && [ -n "$SLAM_B" ]; then
+    # bash has no floats; compare at 1 mm in awk
+    if ! awk -v a="$LIVE_B" -v b="$SLAM_B" \
+         'BEGIN{exit !(a-b<0.002 && b-a<0.002)}'; then
+      BAD="stereo baseline mismatch: Stonefish is simulating ${LIVE_B} m but \
+ORB-SLAM3 is solving for ${SLAM_B} m (from ${SLAM_CFG}). The scenario and the \
+stereo yaml are from different arms."
+    fi
+  fi
+fi
+
 if [ -z "$BAD" ] && [ -n "$SLAM_PUBS" ]; then
   if [ "$ARM" = "dr" ] && [ "$SLAM_PUBS" -gt 0 ]; then
     BAD="SLAM is publishing, but the dr arm drops the SLAM topics"
@@ -81,6 +128,7 @@ if [ -n "$BAD" ]; then
 fi
 
 echo "arm=${ARM} seed=${SEED}  (live seed='${LIVE_SEED:-?}' scale_sigma='${LIVE_SIGMA:-?}' slam_pubs='${SLAM_PUBS:-?}')"
+echo "  stereo baseline: sim='${LIVE_B:-?}' m slam='${SLAM_B:-?}' m  (gate = b*ThDepth)"
 echo "recording ${#TOPICS[@]} topics to ${BAG}"
 echo "Ctrl+C to stop -- let it flush, do not kill it, or the bag loses its footer."
 ros2 bag record "${TOPICS[@]}" -o "$BAG"
