@@ -111,3 +111,61 @@ that produced the table above.
 Related: `docs/TASK_15_SLAM_MAP_FRAGMENTATION_WRITEUP.md` reached the
 uncorrelated-theta and map-crash observations independently; neither the fps
 path nor the frame drop appears there.
+
+---
+
+# Measured 2026-10-15 — two of the three claims above are wrong
+
+Measured directly against a running simulator (Stonefish only, no ArduSub,
+no controller, no SLAM, vehicle at spawn).
+
+**Section 3 is refuted. No frames are being dropped.**
+
+    /bluerov2/left/image_color    109 msgs / 8.1 s = 13.5 Hz
+    /bluerov2/left/image_enhanced 107 msgs / 8.1 s = 13.3 Hz
+
+The enhancement nodes pass essentially everything they receive. The 60 %
+shortfall is not a drop between the simulator and SLAM: Stonefish simply
+does not produce 30 Hz. ORB-SLAM3 sees every frame that exists.
+
+**The jitter claim was measured on the wrong clock.** `ros2 topic hz`
+reports arrival, and arrival is burstier than production:
+
+| | median | min | max | stdev |
+|---|---|---|---|---|
+| header stamp delta | 67 ms | 50 ms | 100 ms | 13 ms |
+| arrival delta | 73 ms | 1 ms | 179 ms | 21 ms |
+
+Inter-frame motion depends on the stamp delta, not on when the message
+happened to arrive. Those run 50-100 ms, a 2x spread on a ~20 Hz grid with
+skipped ticks — not the 4.5x that the arrival maxima suggested. At 0.35 m/s
+that is 1.75-3.5 cm between frames. This is not the tracking hazard it was
+claimed to be.
+
+Stamp span and wall span agree to 10 ms over 10 s, so there is no sim-time
+scaling to appeal to: the stamps are wall-clock and the rate is real.
+
+**What survives: the `Camera.fps` declaration is wrong.**
+
+Idle, the camera produces 14.9 Hz by stamp. Under mission load the recorded
+bags give 11.9 Hz (15275 SLAM poses over 1284 s of header-stamp time). Either
+way the declared 30 is wrong by better than a factor of two, and the three
+source-level consequences in Section 2 stand unchanged. The
+mission-representative value is ~12.
+
+**Also closed: the enhancement node was never broken.** The `cv_bridge
+conversion failed` theory was wrong; a direct subscription shows it emitting
+640x480 bgr8 at 13.3 Hz. The earlier silent `ros2 topic hz` was a transient,
+most likely sampled before the node finished starting.
+
+## Standing recommendation
+
+One change, one run, one comparison: set `Camera.fps: 12` in
+`slam_params/bluerov2_stereo.yaml`, re-run a seed already flown, and compare
+`Tracking LOST` and `New Map created` counts from the container console log
+against the table in the parent document. That is the whole test.
+
+Separately worth one idle measurement, since it costs nothing: whether
+`rviz:=false rendering_quality:=low` lifts the camera above 15 Hz. More real
+frames would help tracking on their own terms, independently of what the
+config declares.
