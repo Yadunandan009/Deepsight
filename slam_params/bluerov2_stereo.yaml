@@ -25,7 +25,17 @@ Camera.width: 640
 Camera.height: 480
 Camera.newWidth: 640
 Camera.newHeight: 480
-Camera.fps: 30
+# Measured, not nominal. The scenario declares the stereo cameras at
+# rate="30.0", but Stonefish delivers 14.9 Hz idle and 11.9 Hz under
+# mission load (header-stamp deltas; 15275 SLAM poses over 1284 s in
+# a50_slamref_seed0_20261014_153610). ORB-SLAM3 derives mMaxFrames from
+# this as a FRAME COUNT and assumes frames arrive at the declared rate,
+# so a value of 30 stretches three windows to ~2.5x their intended
+# duration: the forced-keyframe interval (Tracking.cc:3159), the
+# post-relocalisation 50-inlier bar (Tracking.cc:3033) and the
+# post-relocalisation keyframe-insertion block (Tracking.cc:3094).
+# The last two sit inside the loss -> relocalise -> loss cycle.
+Camera.fps: 12
 Camera.RGB: 1
 
 Stereo.b: 0.145
