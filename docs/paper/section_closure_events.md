@@ -153,7 +153,47 @@ are arithmetic on those counts.
    two events in one mission are not independent, and the missions were not
    sampled from a defined population.
 
-**Figures wanted:** (1) bearing before vs after for all twelve events,
-polar, coloured by class, which shows the 90/180 clustering at a glance;
-(2) the 2026-10-16 mission's position error against time with the closure
-marked.
+**Figures:** made in the journal style (`pubstyle.use_journal`: serif, boxed axes,
+inward ticks, no grid), `eval/fig_closures.py` -> `eval/figures/closures_classes`
+(double column) and `eval/figures/closures_cost` (single column), .pdf for LaTeX
+and .png to preview. Check fonts and column width against the target journal's
+author guide before submission; Liberation Serif is a stand-in for Times. Re-run
+with `python3 eval/fig_closures.py` (`--refresh` re-reads the bags). The
+numbers quoted in section [N].4 (7253 poses, 0.31 m, 10.5 m) are printed by
+the extraction and match. The map re-initialisation times in Figure B were
+checked against the console log (537 s and 564 s after the closure).
+
+---
+
+### Figure captions (draft)
+
+**Figure [A].** The twelve classified loop closures. **(a)** Plan view, north
+up, with the structure at the centre and the 17 m scan orbit dashed. Each
+wrong-face closure (orange) is drawn as the arc along the orbit through which
+the closure moved the estimate, from the open square to the arrowhead; the four
++88 degree closures overlap. The dotted grey arc is the one large closure that
+is not a symmetry operation. Blue points are the six small drift corrections,
+all near the start. **(b)** Size of each correction against the turn it makes
+about the structure's axis; shaded bands are the 15 degree windows around 90
+and 180 degrees and the dashed line is the 3 m threshold for a benign
+correction. All five wrong-face closures end on the east side of the structure
+(bearing +85 to +89 degrees); this is an observation from five events, found
+after looking, and has not been tested prospectively.
+
+**Figure [B].** The cost of one wrong-face closure (mission of 2026-10-16
+16:00), for the SLAM pose with its alignment fitted on the 7253 poses before the
+closure and held fixed (solid) and for dead reckoning without SLAM (dashed).
+**(a)** Bearing error about the structure's axis, kept in the range -180 to 180
+degrees with the line broken where it wraps. **(b)** Horizontal position error
+as a 10 s trailing RMS, logarithmic axis. Before the closure the SLAM curves
+are the fit's own residual, not a prediction (residual 0.31 m, scale 0.955);
+the step at 573 s is out of sample. After it the SLAM bearing error leaves zero
+by 88 degrees and then wanders through the whole circle. Triangles mark the
+two later map re-initialisations (1110 s and 1137 s). Dead reckoning starts
+near zero because the filter is initialised from ground truth.
+
+**Read this about Figure B before using it.** It shows that trusting SLAM
+through the closure is catastrophic. It does not show that SLAM is the worse
+navigator in general: before the closure the SLAM curve (0.1 to 0.7 m) sits
+above dead reckoning (about 0.1 m), consistent with the result that dead
+reckoning is the better estimate on this mission.

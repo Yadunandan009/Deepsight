@@ -46,7 +46,7 @@ t = d.add_heading("Symmetry-Aware Visual Navigation for Autonomous Inspection "
 t.alignment = WD_ALIGN_PARAGRAPH.CENTER
 p("Working title. Draft — Introduction and Literature Survey only.",
   italic=True, align=WD_ALIGN_PARAGRAPH.CENTER)
-note("Drafted 2026-10-14. Every bracketed citation is from recall and MUST be "
+note("Drafted 2026-10-14; Introduction and status note rewritten 2026-10-17 around the loop-closure result (docs/paper/section_closure_events.md). Every bracketed citation is from recall and MUST be "
      "checked against the actual paper before submission — authors, venue, "
      "year and, above all, that the paper says what it is cited for. The "
      "offshore-wind and industry-statistics citations are the least reliable "
@@ -113,72 +113,123 @@ p("That argument is the standard one, and it contains a flaw specific to the "
   "asset class. Offshore jacket structures are built with four-fold symmetry "
   "about their vertical axis, not by coincidence but because a symmetric "
   "truss distributes environmental loading from any heading equally. The four "
-  "faces are, to engineering tolerance, geometrically interchangeable. A "
-  "place-recognition system — whether it matches appearance through a visual "
-  "vocabulary or matches geometry through point-cloud registration — is "
-  "therefore being asked to distinguish between views that the structure's "
-  "designer deliberately made identical. The failure is perceptual aliasing, "
-  "which is well known in general terms [8], [9]; what is specific here is "
-  "that it is predictable in advance, from the engineering drawing, before "
-  "the vehicle enters the water, and that its geometric signature is known: "
-  "an alignment error that is a multiple of ninety degrees.")
+  "faces are, to engineering tolerance, geometrically interchangeable, and we "
+  "confirm this independently from sonar and from the CAD model. A "
+  "place-recognition system, whether it matches appearance through a visual "
+  "vocabulary or geometry through point-cloud registration, is therefore "
+  "being asked to tell apart views that the structure's designer deliberately "
+  "made identical. Perceptual aliasing of this kind is well known in general "
+  "terms [8], [9]. What is specific here is that it can be predicted from the "
+  "engineering drawing before the vehicle enters the water, and that it has a "
+  "precise geometric signature: a wrong-face match is the correct estimate "
+  "rotated about the structure's vertical axis by a multiple of ninety "
+  "degrees, with its distance from the axis unchanged.")
 
-p("This paper takes the position that a known symmetry should be exploited "
-  "rather than suffered. An inspection vehicle, unlike a general-purpose SLAM "
-  "platform, always knows what it is inspecting; a CAD model or survey "
-  "drawing of the asset exists before the mission is planned, and generic "
-  "SLAM discards that prior. We quantify the symmetry of the target as an "
-  "a-priori index computed from the model, show that the interchangeability "
-  "it predicts is measurable in the vehicle's own sensor data, and propose "
-  "that corrections whose geometry corresponds to a symmetry operation of the "
-  "structure be arbitrated by a modality that is blind to appearance — dead "
+p("We tested whether that signature occurs. We recorded every loop closure "
+  "that an off-the-shelf stereo SLAM front end made in eleven simulated "
+  "inspection missions and classified each by the correction it imposed. Of "
+  "twelve closures, six were small drift corrections of under two metres and "
+  "a few degrees. Five were wrong-face closures: each rotated the estimate "
+  "about the structure's axis by 90 degrees (once by 180) to within 2.5 "
+  "degrees, preserved its radius to within three per cent, and moved it by "
+  "24 to 33 m. The ground-truth trajectory confirms this reading. At every "
+  "wrong-face closure the vehicle's true position was at least 18 m from "
+  "anywhere it had been, while the corrected estimate was placed within 0.3 m "
+  "of somewhere it had; at every small correction the vehicle was back "
+  "somewhere it had been. The closure logs show at least five of 28 missions "
+  "affected, and in the best-characterised case a single closure took the "
+  "position error from 0.3 m to tens of metres and fragmented the map, which "
+  "did not recover.")
+
+p("The consequence is less obvious than the failure. On the missions studied "
+  "here, a single orbit of about 130 m, dead reckoning from the Doppler "
+  "velocity log alone holds horizontal error to roughly 0.2 m RMS, even with "
+  "a datasheet error model on the log and a gyro that drifts at three degrees "
+  "per hour. A heading error displaces an estimate in proportion to its "
+  "distance from where heading was last known, and an orbit never takes the "
+  "vehicle far from where it began. Fusing the SLAM pose into the filter made "
+  "the estimate worse, not better. The case for visual SLAM on a mission of "
+  "this length therefore cannot rest on accuracy. It rests on missions long "
+  "enough, or vehicles poorly enough instrumented, that dead reckoning stops "
+  "being sufficient, and on the assumption that SLAM does no harm in the "
+  "meantime. This paper examines that assumption.")
+
+p("Two further findings concern measurement rather than navigation, and we "
+  "report them because they changed our diagnosis. First, the conventional "
+  "way of aligning a SLAM map to the world frame, by correlating the SLAM "
+  "trajectory against the output of the filter that consumes it, is "
+  "unfalsifiable: the alignment is fitted against a quantity it determines, "
+  "so it agrees with itself whether or not it is right. Removing the "
+  "circularity with a SLAM-free reference filter changed the final error of "
+  "an otherwise identical run from 41 m to 1.7 m. Second, the SLAM wrapper "
+  "publishes in the east-north-up convention while the navigation stack uses "
+  "north-east-down. The conversion flips the handedness of the horizontal "
+  "plane, which no rotation-only alignment can absorb. Until it was "
+  "corrected the SLAM track appeared to bear no fixed relation to the world, "
+  "and we attributed the failure to continuous drift of the alignment. With "
+  "the convention corrected that drift disappears: in the 150 s before the "
+  "first closure of each mission the SLAM track fits the true trajectory to "
+  "within 0.6 m, and the failure is the discrete event described above.")
+
+p("This leads to the position this paper takes. A known symmetry should be "
+  "characterised before it is suffered. An inspection vehicle, unlike a "
+  "general-purpose SLAM platform, always knows what it is inspecting; a CAD "
+  "model of the asset exists before the mission is planned, and generic SLAM "
+  "discards that prior. We quantify the symmetry of the target as an "
+  "a-priori index computed from the model, and we argue that a correction "
+  "whose geometry corresponds to a symmetry operation of the structure "
+  "should be arbitrated by a modality that is blind to appearance: dead "
   "reckoning and depth, which cannot be fooled by a face that looks like "
-  "another face.")
-
-p("Establishing any of this requires a measurement apparatus that can be "
-  "trusted, and a substantial part of the work reported here was concerned "
-  "with making one. We find that the conventional way of fusing a visual SLAM "
-  "pose into a navigation filter — estimating the rigid transform between the "
-  "SLAM map frame and the world frame by correlating the SLAM trajectory "
-  "against the filter's own output, while that filter consumes the result — "
-  "is not merely inaccurate but unfalsifiable: the alignment is fitted "
-  "against a quantity it determines, so it agrees with itself regardless of "
-  "whether it is right. We show that opening this loop changes the reported "
-  "error by more than an order of magnitude, and we adopt a SLAM-free "
-  "reference filter as a standing instrument rather than a one-off diagnostic.")
+  "another face. We establish the premise of that argument, that the hazard "
+  "is real, frequent and identifiable from the correction alone. We do not "
+  "evaluate the arbitration itself, and we do not show that the hazard falls "
+  "as the structure is made less symmetric; that test is pre-registered, and "
+  "Section 7 explains why it is not reported here.")
 
 p("The contributions of this paper are:")
 for c in (
     "A simulation testbed for GNSS-denied inspection of a symmetric offshore "
     "structure, in which the Doppler velocity log carries a datasheet-grounded "
-    "systematic error model — per-unit scale factor and beam misalignment drawn "
-    "once from a seed — rather than the zero-mean white noise typically "
+    "systematic error model, a per-unit scale factor and beam misalignment drawn "
+    "once from a seed, rather than the zero-mean white noise typically "
     "simulated, so that dead-reckoning error grows with distance as it does at sea.",
-    "Identification and measurement of an observability defect in the common "
-    "loosely coupled SLAM-to-EKF integration pattern, together with a "
-    "SLAM-free reference filter that makes the alignment falsifiable, and "
-    "evidence that the defect inflates reported navigation error by a factor "
-    "of more than twenty.",
+    "A measurement methodology for SLAM-aided navigation: a SLAM-free reference "
+    "filter that makes the alignment falsifiable, and the diagnosis of two "
+    "defects, a circular alignment and an unconverted frame convention, that "
+    "together made a discrete failure look like continuous drift.",
     "A model-derived symmetry index for the inspection target, and measurement "
     "of the geometric interchangeability of jacket faces independently from "
     "sonar and from CAD.",
-    "Characterisation of the failure mode of an off-the-shelf stereo SLAM "
-    "front end on a four-fold symmetric subsea structure, reported from the "
-    "SLAM system's own diagnostics rather than inferred from its output.",
-    "A symmetry-aware cross-modal gate that rejects corrections corresponding "
-    "to a symmetry operation of the known structure, and an evaluation under a "
-    "pre-registered multi-seed protocol with falsification criteria fixed "
-    "before the runs were executed.",
+    "An event-level characterisation of loop closure on a four-fold symmetric "
+    "structure: a classification rule fixed in advance, twelve closures from "
+    "eleven missions, five of them wrong-face rotations of the estimate about "
+    "the structure's axis, each confirmed against the ground-truth trajectory.",
+    "Evidence that on a single-orbit inspection mission dead reckoning is "
+    "accurate to a fraction of a metre and that fusing SLAM, as commonly "
+    "done, degrades it, together with the geometric reason heading drift "
+    "matters little on such a mission.",
 ):
     d.add_paragraph(c, style="List Bullet")
+
+note("Drafting note 2026-10-17. The symmetry-aware gate was listed here as a "
+     "contribution and is removed because it has not been built; restore it "
+     "only if it is built and measured before submission. The dose-response "
+     "(does the hazard fall as symmetry falls) is pre-registered in "
+     "docs/experiments/PREREG_closure_events.md and not run. The working title "
+     "promises a method; consider retitling to match what is shown, for "
+     "example one that names loop closure on symmetric subsea structures. "
+     "Numbers in this Introduction come from "
+     "docs/paper/section_closure_events.md and eval/closure_events.py.")
 
 p("Section 2 reviews underwater navigation, visual SLAM and its underwater "
   "difficulties, place recognition, and current evaluation practice, and "
   "identifies the gap this work addresses. Section 3 describes the vehicle, "
-  "the simulated environment and the sensor error models. Section 4 sets out "
-  "the navigation architecture and the symmetry-aware gate. Section 5 gives "
-  "the experimental protocol. Section 6 reports results and Section 7 "
-  "discusses their limits.")
+  "the simulated environment, the sensor error models and the navigation "
+  "architecture, including the SLAM-free reference filter. Section 4 sets "
+  "out how loop closures are located and classified. Section 5 gives the "
+  "experimental protocol. Section 6 reports results: dead-reckoning "
+  "accuracy, the closure events and their cost. Section 7 discusses their "
+  "limits and the remedy.")
 
 # -------------------------------------------------- 2. background
 h("2. Background and Related Work", 1)
@@ -392,55 +443,65 @@ for i, r in enumerate(refs, 1):
 d.add_page_break()
 h("Status note for the reviewer of this draft", 1)
 note("Not part of the manuscript. This records what the prose above is "
-     "entitled to assume as of 2026-10-14, so that nothing unsupported is "
+     "entitled to assume as of 2026-10-17 (rewritten; the 2026-10-14 version" 
+     "is in the v1 file), so that nothing unsupported is "
      "carried forward silently.")
 
 p("Settled, and safe to cite in later sections:", italic=True)
-for s in (
-    "R1 — jacket faces are geometrically interchangeable. Measured "
-    "independently from sonar and from CAD (ICP fitness 1.000, RMSE ~0.11 m). "
-    "Algorithm-free and calibration-independent.",
-    "The observability defect and its magnitude. Final position error 41.04 m "
-    "with the alignment fitted against the filter it feeds, 1.68 m against an "
-    "independent reference, same seed and configuration.",
-    "The three-seed reference-arm result, pre-registered. The SLAM-free "
-    "reference filter reaches 0.11 / 0.47 / 0.57 m final error against the "
-    "no-SLAM arm's 0.11 / 0.34 / 0.51 m, and the primary filter is 8–10x worse "
-    "on every seed.",
+for s_ in (
+    "R1: jacket faces are geometrically interchangeable. Measured independently "
+    "from sonar and from CAD (ICP fitness 1.000, RMSE ~0.11 m). Algorithm-free "
+    "and calibration-independent.",
+    "The closure events: twelve classified in eleven recorded missions, five "
+    "wrong-face, each confirmed against the ground-truth trajectory (nearest "
+    "earlier visit to the true position 18.7 to 20.5 m; estimate lands within "
+    "0.3 m of an earlier true visit). Classifier fixed and hashed in "
+    "docs/experiments/PREREG_closure_events.md. At least 5 of 28 missions affected.",
+    "The frame defect: the SLAM pose arrives in ENU and the stack is NED. "
+    "Converted on ingest from 2026-10-16; with it corrected the SLAM track fits "
+    "truth to 0.08-0.56 m in the 150 s before the first closure of each mission.",
     "The DVL error model is verified per run: the realised 3x3 operator is "
     "recovered from the recorded velocities and matched against the seed, to "
     "better than 0.0005.",
+    "Dead reckoning on the 2026-10-16 heading-drift mission: 0.20 m RMS over "
+    "131 m with a 3 deg/hr gyro drift confirmed reaching the filter at "
+    "3.00 deg/hr.",
 ):
-    d.add_paragraph(s, style="List Bullet")
+    d.add_paragraph(s_, style="List Bullet")
 
 p("Open, and NOT safe to assume in the prose:", italic=True)
-for s in (
-    "R3 — the 90-degree re-lock signature. The p = 0.0087 dose-response was "
-    "measured on 2026-10-07, before the observability defect was found, so it "
-    "comes from closed-loop runs whose alignment was later shown to be "
-    "unfalsifiable. It must be re-run with the reference filter open. A "
-    "precondition check on the three open-loop runs available (40 locks, "
-    "baseline structure only) gives 4-fold as the strongest of six folds "
-    "tested, R = 0.253, p = 0.076 — the right direction, pre-specified, but "
-    "not significant, and not the dose-response.",
-    "The mechanism sentence in Section 1 and Section 2.5. The draft says "
-    "place recognition aliases between faces. ORB-SLAM3's own console logs for "
-    "the three runs report ONE loop detection in total across three complete "
-    "orbits (1, 0, 0), with 41–202 tracking losses and 2–14 new maps created "
-    "per run. Whatever produces the re-locks, it is not predominantly false "
-    "loop closure, because loop closure almost never executes. The mechanism "
-    "must be restated to match this before the Introduction is final.",
-    "R4 — the symmetry-aware gate. Designed, not yet implemented or evaluated. "
-    "The Introduction currently lists it as a contribution; that must not "
-    "survive into submission unless it is built and measured.",
-    "Whether visual SLAM can bound the drift at all on this target. The best "
-    "possible global similarity transform between the SLAM track and ground "
-    "truth leaves a 16.5–16.8 m residual on a ~40 m trajectory, so at present "
-    "there is no fixed map-to-world transform to recover. Work is underway on "
-    "the tracking failures upstream of this.",
+for s_ in (
+    "R3, dose-response. The earlier p = 0.0087 was computed from bridge re-lock "
+    "angles, which measured the frame defect, and is void. The rebuilt test "
+    "(L0 against L4, one-sided Fisher on the first closure per mission) is "
+    "pre-registered and not run; at the historical rate it needs 30 to 40 "
+    "missions per arm for 65 to 87 per cent power.",
+    "R4, the symmetry-aware gate. Designed, not built. Must not appear as a "
+    "contribution unless built and measured.",
+    "The '41 m against 1.7 m' figure for the circular alignment. Measured "
+    "before the frame correction. The direction is not in doubt, since the "
+    "circularity is structural, but the magnitude must be re-measured on the "
+    "corrected pipeline before it is quoted in the results.",
+    "The earlier '8 to 10 times worse' figure for the fused filter. Measured "
+    "through the frame defect and superseded. The corrected measurement, on "
+    "the heading-drift mission, is 2.6 times worse over the inspection "
+    "(0.17 m against 0.45 m), but that run is void for its stated purpose "
+    "because dead reckoning stayed below the 0.5 m criterion, and it used the "
+    "old constant covariance.",
+    "The bridge changes of 2026-10-16 (similarity fit with scale, published "
+    "covariance derived from the fit residual). Verified offline against a "
+    "synthesised transform; never flown. A live mission is needed before "
+    "anything is claimed about them.",
+    "The shared landing bearing of the five wrong-face closures (+85 to +89 "
+    "degrees). Five events, found after looking, not tested prospectively.",
+    "Whether SLAM helps on any mission here. Not shown. The heading-drift "
+    "experiment that would show it was void, and a single circuit suppresses "
+    "heading drift by about 3.5 times in position error, so longer missions "
+    "are where the question lives.",
+    "Every citation. From recall, none verified.",
 ):
-    d.add_paragraph(s, style="List Bullet")
+    d.add_paragraph(s_, style="List Bullet")
 
-out = "DeepSight_Introduction_LitSurvey_v1.docx"
+out = "DeepSight_Introduction_LitSurvey_v2.docx"
 d.save(out)
 print("wrote", out)

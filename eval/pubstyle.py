@@ -110,3 +110,47 @@ def save(fig, stem, also_png=True):
         out.append(f'{stem}.png')
     plt.close(fig)
     return out
+
+
+def use_journal(base_fontsize=8):
+    """Manuscript style: what a journal figure actually looks like.
+
+    `use()` above is clean but reads as a modern screen chart: sans-serif,
+    open frame, grid. Print journals use a serif face metric-compatible with
+    the body text (Times), a fully boxed frame with ticks pointing INTO the
+    plot on all four sides, minor ticks, no grid, black ink, and thin lines.
+    Additive: `use()` is untouched, so existing figures regenerate unchanged.
+
+    Liberation Serif is a TrueType, Times-metric-compatible face, so it embeds
+    as Type 42 as `use()` already requires; STIXGeneral ships with matplotlib
+    as the fallback.
+    """
+    use(base_fontsize)
+    plt.rcParams.update({
+        'font.family': 'serif',
+        'font.serif': ['Liberation Serif', 'STIXGeneral', 'DejaVu Serif'],
+        'mathtext.fontset': 'stix',
+        'axes.grid': False,
+        'axes.edgecolor': 'black',
+        'axes.labelcolor': 'black',
+        'text.color': 'black',
+        'xtick.color': 'black',
+        'ytick.color': 'black',
+        'xtick.direction': 'in',
+        'ytick.direction': 'in',
+        'xtick.top': True,
+        'ytick.right': True,
+        'xtick.minor.visible': True,
+        'ytick.minor.visible': True,
+        'xtick.major.size': 3.0,
+        'ytick.major.size': 3.0,
+        'xtick.minor.size': 1.5,
+        'ytick.minor.size': 1.5,
+        'axes.linewidth': 0.6,
+        'lines.linewidth': 0.9,
+        'font.size': base_fontsize,
+        'axes.labelsize': base_fontsize,
+        'xtick.labelsize': base_fontsize - 1,
+        'ytick.labelsize': base_fontsize - 1,
+        'legend.fontsize': base_fontsize - 1.5,
+    })
