@@ -45,6 +45,24 @@ stale and violently re-guessing. A refit that would change theta by more
 than REFIT_MAX_DELTA is treated as an outlier and discarded rather than
 adopted — genuine fragmentation is still handled by the explicit map-crash
 and raw-jump detectors below, which do a full, unconstrained reset.
+
+MEASURED 2026-10-16, four bags, against ground truth (scratch replay over
+`/bluerov2/robot_pose_slam`; see docs/experiments/PREREG_heading_drift.md):
+
+  * The refit wander is NOT noise and must not be damped away. Sweeping
+    the window width 75s -> infinity drives theta's scatter down (sd 5.0
+    -> 0.8 deg) and the aligned pose's error UP (0.63 -> 1.31 m), on
+    every bag tried. The map frame really does move; a transform that
+    refuses to follow it is simply wrong for longer. The sliding window
+    above is earning its keep and was left alone.
+  * Metric scale is NOT 1.0. Similarity Procrustes recovers k = 0.89 to
+    0.99 across bags (0.967 on the clean one). The stereo baseline and
+    focal length were both re-derived from the .scn and agree with the
+    SLAM yaml to four figures, so this is ORB-SLAM3's own scale bias on
+    a far-dominated scene (mThDepth = 5.8 m, 13% of returns inside it),
+    not a calibration error. Fitting k instead of assuming it is worth
+    5-16% on three of four bags, and is modelled below.
+  * The published covariance was the dominant defect. See _publish_var().
 """
 import rclpy
 from rclpy.node import Node
@@ -83,12 +101,22 @@ class SlamPoseBridge(Node):
         self.ekf_y = None
         self.ekf_z = None
 
-        # Rigid transform: world = R(theta) @ slam + t
+        # Similarity transform: world = scale * R(theta) @ slam + t.
+        # cos_t/sin_t stay a PURE rotation so atan2(sin_t, cos_t) keeps
+        # recovering theta for the refit gates; scale is carried separately
+        # and applied at use.
         self.aligned = False
         self.cos_t = 1.0
         self.sin_t = 0.0
+        self.scale = 1.0
         self.tx = 0.0
         self.ty = 0.0
+
+        # Per-axis RMS residual of the correspondences under the adopted
+        # transform. This is the bridge's own, causal, ground-truth-free
+        # estimate of how wrong the pose it is about to publish will be --
+        # see _publish_var().
+        self.fit_resid = None
 
         # Correspondence buffer for solving the transform
         self.MIN_CORRESPONDENCES = 20   # floor sample count (~1.5s at 13Hz)
@@ -154,6 +182,16 @@ class SlamPoseBridge(Node):
                                          # than letting compounding small
                                          # steps silently reach an arbitrary
                                          # final orientation.
+        # Plausible range for the realised stereo scale. Observed 0.89 to
+        # 0.99 over four bags; a fit outside this says the window is bad,
+        # not that the camera changed. Matters most at the INITIAL lock,
+        # which has no previous scale to damp against and would otherwise
+        # adopt whatever a degenerate window produced -- a failure mode the
+        # old rotation-only code could not have, since it never fitted a
+        # scale at all.
+        self.SCALE_MIN = 0.75
+        self.SCALE_MAX = 1.25
+
         self.theta_at_lock = 0.0
         self.create_timer(self.REFIT_INTERVAL, self._periodic_refit)
 
@@ -197,6 +235,33 @@ class SlamPoseBridge(Node):
                                        # fresh correspondence buffer is
                                        # allowed to start collecting
         self.map_stable_since = None
+
+        # Published covariance. The bridge used to declare a hardcoded
+        # 0.05 m^2 (sigma = 0.22 m) on every pose it ever published,
+        # regardless of how well the alignment actually fitted. Measured
+        # against ground truth on 2026-10-16, the aligned pose's true
+        # per-axis sigma was 0.28 m on a clean run and 1.64 m on one with
+        # a loop closure in it -- the latter is 54x the declared VARIANCE.
+        # An EKF handed a 1.6 m measurement labelled "good to 22 cm" will
+        # believe it over a dead-reckoned position that is genuinely good
+        # to 17 cm, which is the arithmetic behind SLAM making the filter
+        # worse rather than better.
+        #
+        # The window residual is a usable stand-in and costs nothing: it
+        # read 0.18 m where truth said 0.28 m, and 1.94 m where truth said
+        # 1.64 m, so it tracks the order of magnitude that matters and
+        # flags the bad run as bad without ever seeing truth.
+        #
+        # The floor means this can only ever LOOSEN the old figure, never
+        # tighten it: SLAM's pull on the filter can be reduced by this
+        # change but not increased, so it cannot make any previously
+        # acceptable run diverge.
+        self.PUBLISH_VAR_FLOOR = 0.05   # m^2 -- the old hardcoded value
+        self.PUBLISH_VAR_SLACK = 1.5    # residual underestimates the true
+                                        # error (0.18 vs 0.28, 1.94 vs
+                                        # 1.64); inflate sigma by this so
+                                        # the filter is told the larger of
+                                        # the two, not the smaller
 
         # Consistency gate — max disagreement (m) between a transformed
         # SLAM pose and the EKF's own dead-reckoned (DVL+INS+pressure)
@@ -307,6 +372,12 @@ class SlamPoseBridge(Node):
         self.aligned = False
         self.buf.clear()
         self.reject_streak = 0
+        # Scale and residual belong to the transform being discarded. The
+        # residual especially: leaving a stale one behind would let the
+        # next pose published after a re-lock carry the confidence of the
+        # fit that just failed.
+        self.scale = 1.0
+        self.fit_resid = None
 
     def _periodic_refit(self):
         """Timer-driven re-solve from the current sliding window, even
@@ -317,11 +388,19 @@ class SlamPoseBridge(Node):
             self._try_solve()
 
     def _try_solve(self):
-        """Closed-form 2D rotation-only Procrustes fit (no scale — stereo
-        SLAM's metric scale is already correct from the calibrated
-        baseline): theta = angle of sum(conj(slam') * ekf') over centered
-        correspondence pairs. Equivalent to Kabsch/Umeyama restricted to
-        SO(2), without needing numpy/SVD for a 2D-only problem.
+        """Closed-form 2D similarity Procrustes fit: theta = angle of
+        sum(conj(slam') * ekf') over centered correspondence pairs, and
+        scale = |sum(conj(slam') * ekf')| / sum|slam'|^2. Umeyama
+        restricted to Sim(2), without needing numpy/SVD for a 2D-only
+        problem.
+
+        Scale used to be pinned at 1.0 on the grounds that stereo SLAM's
+        metric scale is correct from the calibrated baseline. The baseline
+        is correct -- eval/check_stereo_baseline.py re-derives it from the
+        .scn and it agrees with the SLAM yaml to four figures -- but the
+        realised scale is not: k comes out 0.89-0.99 across every bag
+        measured. A rotation-only fit cannot represent that, so the error
+        went into the residual and, through it, into the published pose.
 
         Called both for the initial lock (self.aligned False) and for
         periodic refits of an existing lock (self.aligned True) — in the
@@ -350,6 +429,18 @@ class SlamPoseBridge(Node):
             num += sxp * eyp - syp * exp_
             den += sxp * exp_ + syp * eyp
         theta = math.atan2(num, den)
+        # sum|slam'|^2; guard is belt-and-braces, the spread gate above
+        # already rejects a degenerate cluster.
+        sq = sum((sx - s_cx) ** 2 + (sy - s_cy) ** 2 for sx, sy, _, _ in pts)
+        scale = math.hypot(num, den) / sq if sq > 1e-9 else 1.0
+
+        if not (self.SCALE_MIN <= scale <= self.SCALE_MAX):
+            self.get_logger().warn(
+                f'Fit rejected: scale {scale:.3f} outside '
+                f'[{self.SCALE_MIN}, {self.SCALE_MAX}] -- degenerate or '
+                f'cross-fragment window (n={n} spread={spread:.1f}m)',
+                throttle_duration_sec=5.0)
+            return
 
         was_aligned = self.aligned
         if was_aligned:
@@ -367,6 +458,8 @@ class SlamPoseBridge(Node):
             # Damp the accepted refit instead of snapping straight to it --
             # see REFIT_EMA_ALPHA docstring above.
             theta = cur_theta + self.REFIT_EMA_ALPHA * wrap(theta - cur_theta)
+            # Damp scale on the same cadence and for the same reason.
+            scale = self.scale + self.REFIT_EMA_ALPHA * (scale - self.scale)
 
             cumulative = abs(wrap(theta - self.theta_at_lock))
             if cumulative > self.REFIT_MAX_CUMULATIVE_DRIFT:
@@ -381,8 +474,22 @@ class SlamPoseBridge(Node):
 
         self.cos_t = math.cos(theta)
         self.sin_t = math.sin(theta)
-        self.tx = e_cx - (self.cos_t * s_cx - self.sin_t * s_cy)
-        self.ty = e_cy - (self.sin_t * s_cx + self.cos_t * s_cy)
+        self.scale = scale
+        kc, ks = scale * self.cos_t, scale * self.sin_t
+        self.tx = e_cx - (kc * s_cx - ks * s_cy)
+        self.ty = e_cy - (ks * s_cx + kc * s_cy)
+
+        # Per-axis RMS residual of THIS window under the transform just
+        # adopted. Computed here because the centred pairs are already to
+        # hand, and because it must describe the transform actually in
+        # force -- after the EMA damping, not the raw candidate.
+        ss = 0.0
+        for sx, sy, ex, ey in pts:
+            sxp, syp = sx - s_cx, sy - s_cy
+            ss += ((kc * sxp - ks * syp) - (ex - e_cx)) ** 2
+            ss += ((ks * sxp + kc * syp) - (ey - e_cy)) ** 2
+        self.fit_resid = math.sqrt(ss / (2 * n))
+
         self.aligned = True
         self.reject_streak = 0
         if not was_aligned:
@@ -390,8 +497,18 @@ class SlamPoseBridge(Node):
         kind = 'refit' if was_aligned else 'solved'
         self.get_logger().info(
             f'SLAM alignment {kind}: theta={math.degrees(theta):+.1f}deg '
-            f'tx={self.tx:.2f} ty={self.ty:.2f} '
+            f'scale={scale:.3f} tx={self.tx:.2f} ty={self.ty:.2f} '
+            f'resid={self.fit_resid:.2f}m sigma={math.sqrt(self._publish_var()):.2f}m '
             f'n={n} spread={spread:.1f}m map_pts={self.map_pts}')
+
+    def _publish_var(self):
+        """Per-axis variance to publish with the pose, from the current
+        fit's own residual. See PUBLISH_VAR_FLOOR above for why this is
+        floored at the value it replaces."""
+        if self.fit_resid is None:
+            return self.PUBLISH_VAR_FLOOR
+        return max((self.PUBLISH_VAR_SLACK * self.fit_resid) ** 2,
+                   self.PUBLISH_VAR_FLOOR)
 
     def slam_cb(self, m):
         if self.slam_is_enu:
@@ -445,8 +562,9 @@ class SlamPoseBridge(Node):
         # locking — see module docstring.
         self.buf.append((sx, sy, self.ekf_x, self.ekf_y))
 
-        wx = self.cos_t * sx - self.sin_t * sy + self.tx
-        wy = self.sin_t * sx + self.cos_t * sy + self.ty
+        kc, ks = self.scale * self.cos_t, self.scale * self.sin_t
+        wx = kc * sx - ks * sy + self.tx
+        wy = ks * sx + kc * sy + self.ty
 
         # GATE 2 — consistency gate: reject this frame outright if it
         # disagrees with the EKF's own position by more than
@@ -475,14 +593,18 @@ class SlamPoseBridge(Node):
         out.pose.pose = m.pose
         out.pose.pose.position.x = wx
         out.pose.pose.position.y = wy
-        # SLAM covariance — tune based on tracking quality
+        # SLAM covariance, from the alignment's own residual rather than
+        # a constant — see PUBLISH_VAR_FLOOR.
+        v = self._publish_var()
         c = out.pose.covariance
-        c[0]  = 0.05   # x variance
-        c[7]  = 0.05   # y variance
+        c[0]  = v      # x variance
+        c[7]  = v      # y variance
         c[14] = 9999.0 # z — not trusted
         c[21] = 9999.0 # roll
         c[28] = 9999.0 # pitch
-        c[35] = 0.05   # yaw variance
+        c[35] = 0.05   # yaw — unchanged: the residual above is a POSITION
+                       # residual and says nothing about heading, so
+                       # deriving a yaw variance from it would be made up.
         self.pub.publish(out)
 
 

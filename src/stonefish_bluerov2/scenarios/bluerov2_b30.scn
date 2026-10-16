@@ -6,13 +6,13 @@
      mThDepth = b * Stereo.ThDepth, so b=0.145 put that gate at 5.8 m
      against a structure whose nearest surface is a median 8.1 m away;
      b=0.30 moves it to 12.0 m. Pair ONLY with
-     slam_params/bluerov2_stereo_b30.yaml -- eval/check_stereo_baseline.py
+     slam_params/bluerov2_stereo_b30.yaml, checked by eval/check_stereo_baseline.py
      enforces that.
 
      The cameras also move FORWARD, x 0.16 -> 0.22. At y=+/-0.15 and
      x=0.16 the hull enters the 75x60 deg frustum (676 mesh vertices,
      nearest 3.3 cm) and the left/right images are mostly the vehicle's
-     own body -- observed live 2026-10-15. The body's nose is at
+     own body, observed live 2026-10-15. The body's nose is at
      x=+0.222, and x=0.22 is clear even at an inflated 110x95 deg
      frustum. The 6 cm forward shift is a constant offset in the SLAM
      frame and is absorbed by the alignment's translation term. -->

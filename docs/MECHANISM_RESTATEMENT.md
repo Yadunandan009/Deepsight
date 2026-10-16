@@ -38,6 +38,12 @@ step 18.3 deg. This is drift, not switching.
 
 ## 3. The error is not a rotation at all
 
+> **Amended 2026-10-16.** The conclusion holds, but drop the path-length
+> premise: the 1.8-2.8x inflation is per-sample sampling noise, not a
+> property of the error (docs/PATH_LENGTH_INFLATION.md). Rest this
+> section on the scale evidence alone -- corrected to 0.95-0.97, which
+> a rotation still cannot produce.
+
 A rotation about the structure's axis is an isometry. It cannot change the
 length of a path and it cannot change scale. Measured:
 
@@ -113,6 +119,13 @@ The ninety-degree signature is a separate, weaker claim and must be reported
 on its own evidence. See R3 below.
 
 ## R3's current status, stated honestly
+
+> **Superseded 2026-10-16.** The statistic below is unchanged after the
+> frame fix (re-run: identical, p = 0.076), but the sample is void: the
+> corrected rotation dispersion is 0.00-0.07 across all four open-loop
+> runs, so no re-lock events occurred and these 40 angles measure a
+> failing least-squares fit, not face confusion. Do not report the
+> p-value. See docs/LOOP_CLOSURE_FACE_CONFUSION.md.
 
 Pre-registered test, three open-loop seeds, n = 40 locks:
 4-fold R = 0.253, **p = 0.076**. Largest of the six folds tested, correct

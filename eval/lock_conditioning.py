@@ -35,6 +35,7 @@ Usage:  lock_conditioning.py BAG [BAG ...]
 import glob
 import math
 import os
+import re
 import sys
 
 import numpy as np
@@ -80,11 +81,46 @@ def pose_xy(m):
 
 
 def raw_xy(m):
-    # ENU -> NED. The PUBLISHED side already carries the conversion (the
-    # bridge applies it on ingest), so leaving the raw side unconverted
-    # would make every recovered theta absorb the 180 deg frame flip.
+    """The SLAM pose in NED -- for comparison against the world.
+
+    Correct whenever the other side of the comparison lives in the world
+    frame (the DR reference, ground truth). That is report_sliding().
+    """
     x, y = slam_to_ned_xy(m.pose.position.x, m.pose.position.y)
     return (stamp(m), x, y)
+
+
+def raw_xy_enu(m):
+    """The SLAM pose exactly as published -- for pairing with the bridge.
+
+    The lock reconstruction solves published = R*raw + t, so `raw` must be
+    what the BRIDGE consumed, not what is correct. Before 2026-10-16 the
+    bridge consumed ENU; after, NED. Converting the wrong one makes the
+    relation a reflection, and theta_from_pairs then returns noise.
+    pick_raw_for_bridge() decides per bag instead of assuming.
+    """
+    return (stamp(m), m.pose.position.x, m.pose.position.y)
+
+
+def pick_raw_for_bridge(bag):
+    """Which raw convention did this bag's bridge consume?
+
+    Decided by the bag's own date, because that is a fact rather than an
+    inference: the ENU->NED conversion landed in slam_pose_bridge on
+    2026-10-16 (commit 7d77b4c). Bags before it fed the bridge ENU; bags
+    after feed it NED.
+
+    Fitting both and keeping the lower residual does NOT work here -- the
+    bridge re-aligns a dozen times a run, so no single rotation fits
+    either convention and the comparison is noise. That was tried and
+    chose wrong (0/13 locks reconstructing within 5 deg).
+    """
+    m = re.search(r"(\d{8})_\d{6}", os.path.basename(os.path.normpath(bag)))
+    if not m:
+        return raw_xy_enu, "enu (no date in bag name; assuming pre-fix)"
+    if m.group(1) >= "20261016":
+        return raw_xy, f"ned (bag dated {m.group(1)}, post-fix bridge)"
+    return raw_xy_enu, f"enu (bag dated {m.group(1)}, pre-fix bridge)"
 
 
 def theta_from_pairs(s, w):
@@ -172,7 +208,9 @@ def spearman(x, y):
 
 
 def analyse(bag):
-    raw = read(bag, T_SLAM_RAW, raw_xy)
+    _fn, _how = pick_raw_for_bridge(bag)
+    print(f"  raw convention used for the bridge pairing: {_how}")
+    raw = read(bag, T_SLAM_RAW, _fn)
     out = read(bag, T_SLAM_OUT, pose_xy)
     ref = read(bag, T_REF, pose_xy)
     name = os.path.basename(bag)
