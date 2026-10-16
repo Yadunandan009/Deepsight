@@ -36,10 +36,24 @@ import sys
 import numpy as np
 from mcap_ros2.reader import read_ros2_messages
 
+# The SLAM pose arrives in ENU; this workspace is NED. Without this the
+# tool measures the unconverted track -- see eval/slamio.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from slamio import slam_to_ned_xy, NOTE
+
 T_SLAM = "/bluerov2/robot_pose_slam"
 T_REF = "/bluerov2/odometry/dr"
 T_TRUTH = "/bluerov2/odometry"
 WIN_S, STEP_S, MIN_BASELINE = 40.0, 10.0, 5.0
+
+
+class _Ned:
+    """A .x/.y view of a SLAM position, converted to NED."""
+    __slots__ = ('x', 'y', 'z')
+
+    def __init__(self, p):
+        self.x, self.y = slam_to_ned_xy(p.x, p.y)
+        self.z = -p.z
 
 
 def grab(bag, topic, pose):
@@ -79,7 +93,10 @@ def main():
         sys.exit(__doc__)
 
     for bag in bags:
-        raw = grab(bag, T_SLAM, lambda m: m.pose.position)
+        # Converted on read: a rotation fitted to the published (ENU)
+        # track can never succeed, which is what every residual in
+        # this file reported before 2026-10-16.
+        raw = grab(bag, T_SLAM, lambda m: _Ned(m.pose.position))
         ref = grab(bag, T_REF, lambda m: m.pose.pose.position)
         tru = grab(bag, T_TRUTH, lambda m: m.pose.pose.position)
         if len(raw) < 100 or len(tru) < 100:
@@ -93,6 +110,7 @@ def main():
         E = at(ref) if len(ref) > 100 else T
 
         print(f"\n{'=' * 74}\n{os.path.basename(bag)}\n{'=' * 74}")
+        print(f"  {NOTE}")
 
         d = np.hypot(np.diff(raw[:, 1]), np.diff(raw[:, 2]))
         print(f"  continuity: {len(raw)} poses, step median "

@@ -40,6 +40,11 @@ import sys
 import numpy as np
 from mcap_ros2.reader import read_ros2_messages
 
+# The SLAM pose arrives in ENU; this workspace is NED. Without this the
+# tool measures the unconverted track -- see eval/slamio.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from slamio import slam_to_ned_xy, NOTE
+
 T_SLAM_RAW = "/bluerov2/robot_pose_slam"
 T_SLAM_OUT = "/bluerov2/robot_pose_slam_ekf"
 T_REF = "/bluerov2/odometry/dr"
@@ -75,7 +80,11 @@ def pose_xy(m):
 
 
 def raw_xy(m):
-    return (stamp(m), m.pose.position.x, m.pose.position.y)
+    # ENU -> NED. The PUBLISHED side already carries the conversion (the
+    # bridge applies it on ingest), so leaving the raw side unconverted
+    # would make every recovered theta absorb the 180 deg frame flip.
+    x, y = slam_to_ned_xy(m.pose.position.x, m.pose.position.y)
+    return (stamp(m), x, y)
 
 
 def theta_from_pairs(s, w):

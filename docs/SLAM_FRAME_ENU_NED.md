@@ -128,3 +128,59 @@ Refuted if theta still disperses above 0.5 after the conversion.
 ATE is again **not** a criterion. Whether a correctly-framed SLAM pose
 actually beats the 0.11-0.19 m dead-reckoning reference is a separate
 question, and the honest answer may still be no.
+
+---
+
+# The eval tools were measuring through the bug too (2026-10-16)
+
+`slam_track_fidelity.py`, `lock_conditioning.py` and `stepdist.py` read
+`/bluerov2/robot_pose_slam` straight from the bag. The live nodes convert
+on ingest; these did not. So every fidelity number this project has
+quoted was computed on the unconverted track. Fixed via `eval/slamio.py`,
+which imports the one definition from `stonefish_bluerov2.frames` so the
+eval path and the live path cannot disagree.
+
+Validation: on `a50_slamref12_seed0_20261015_180532` the repaired tool
+returns scale 0.96, theta +5 deg, residual 0.8 m -- matching
+`reflect_check.py`'s independent answer (0.961, +5 deg, 0.82 m). Path
+length ratio did not move (1.90 both ways), which is the control: path
+length is reflection-invariant and must not change.
+
+## The corrected history
+
+| run | residual, as reported | residual, corrected | local scale, was -> is | path ratio |
+|---|---|---|---|---|
+| slamref seed 0 | 16.8 m | **1.4 m** | 0.93 -> **0.96** | 2.37 |
+| slamref seed 1 | 17.3 m | **1.6 m** | 0.91 -> **0.97** | 1.83 |
+| slamref seed 2 | 16.5 m | **2.9 m** | 0.95 -> **0.97** | 2.77 |
+| slamref12 seed 0 | 17.5 m | **0.8 m** | 0.91 -> **0.95** | 1.90 |
+| slamb30 seed 0 | 17.0 m | **1.3 m** | 0.91 -> **0.96** | 1.82 |
+| slamned seed 0 | 16.7 m | 10.5 m | - | 2.51 |
+
+Rotation dispersion over `slamref12`, recomputed: **0.00**. Adjacent
+40 s windows step by a median of **2.1 deg**, not 18.4. The rotation was
+a single fixed value for the entire mission.
+
+**Every run before the fix had good SLAM.** Residual 0.8-2.9 m at scale
+0.95-0.97 on a ~40 m trajectory, one fixed transform throughout. The
+wandering theta, the degenerate scales, the 16-17 m residuals and "no
+fixed map-to-world transform exists" were all one measurement artifact.
+
+Tables elsewhere in `docs/` that quote residual, local scale or theta
+dispersion from before this date are through-the-bug values. The
+comparisons between arms in them remain valid -- the artifact was
+identical in every arm -- but the absolute numbers are not.
+
+## What survives
+
+**Path-length inflation, 1.8-2.8x.** Reflection-invariant, so untouched
+by any of this, and now the only unexplained defect. With the global fit
+at 0.8-2.9 m and scale 0.96, the track is right at mission scale and
+wrong at short timescales: high-frequency jitter, not drift. That is a
+different problem from the one this project has been chasing.
+
+**The slamned run is genuinely the worst of the six**, at 10.5 m and
+local scale 0.48, because of a real 25.24 m relocalisation jump in the
+raw topic at t = 572 s -- upstream of every line the frame fix touched.
+Before that jump it fits at 0.82 m and scale 0.960 with one alignment
+held for 342 s, four times the previous best lock.

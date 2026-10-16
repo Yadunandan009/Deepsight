@@ -17,6 +17,8 @@ from mcap_ros2.reader import read_ros2_messages
 
 sys.path.insert(0, os.path.expanduser("~/ros2_ws/eval"))
 import analyze_anchorfree as A
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from slamio import slam_to_ned_xy
 
 WIN, HOP = 40.0, 10.0
 
@@ -29,8 +31,12 @@ def track(bag, topic):
                  else m.log_time / 1e9)
             # robot_pose_slam is PoseStamped, odometry/dr is Odometry
             ps = m.ros_msg.pose
-            p = ps.pose.position if hasattr(ps, "pose") else ps.position
-            rows.append((t, p.x, p.y))
+            if hasattr(ps, "pose"):            # Odometry: already NED
+                p = ps.pose.position
+                rows.append((t, p.x, p.y))
+            else:                              # the SLAM pose: ENU -> NED
+                rows.append((t,) + slam_to_ned_xy(ps.position.x,
+                                                  ps.position.y))
     return np.array(rows) if rows else None
 
 
