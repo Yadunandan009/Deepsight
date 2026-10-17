@@ -7,8 +7,10 @@ One event, measured three ways, in `a50_slamned_seed0_20261016_160033`.
 `slam_atlas/orb_slam3_console_20261016_160002.log` contains exactly one
 `*Loop detected`, timestamped between wall 1792147192 and 1792147212.
 `slam_pose_bridge` logged `SLAM jump detected 25.24m` at 1792147211.7 --
-inside that window. The Atlas then fragmented twice (map 1 at ~1792147695,
-map 2 at ~1792147770) and never recovered.
+inside that window. The Atlas then fragmented twice (new maps at wall 1792147748
+and 1792147775, 537 s and 564 s after the closure) and never recovered.
+(An earlier version gave ~1792147695 and ~1792147770; that was approximate
+and 53 s wrong for the first. Corrected 2026-10-17 from the console log.)
 
 Before the loop closure the SLAM track was excellent: a similarity fitted
 on the 7253 pre-jump poses gives yaw +7 deg, scale 0.955, **residual

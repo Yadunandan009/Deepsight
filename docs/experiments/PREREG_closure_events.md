@@ -190,3 +190,16 @@ those logs.
 ## Amendment log
 
 *(append-only; each entry dated, with the reason, before any data it affects)*
+
+**2026-10-17, before any confirmatory data.** Section 1's bullet "All five land
+on the same bearing ... whatever face they started from" overstated the
+evidence. Four of the five closures start from the same face and turn the same
+way, so they necessarily end together; only two starting faces are
+independent (about 0 and -89 degrees), both ending at about +88 degrees. S2
+(at least 80 % of aliased first closures land within 15 degrees of one
+bearing) would therefore be met by construction whenever the start faces
+repeat, which they do with an unchanged controller. **S2 is amended:** it is
+informative only if the aliased first closures come from at least three
+distinct starting faces, and it is to be reported as the number of distinct
+(start face, end face) pairs rather than as a proportion landing on one
+bearing.

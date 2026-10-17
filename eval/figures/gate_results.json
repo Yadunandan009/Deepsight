@@ -1,0 +1,316 @@
+{
+ "params": {
+  "BASE": 3.0,
+  "K": 3.0,
+  "TAU": 120.0,
+  "R": 17.0,
+  "N": 4,
+  "TOL": 0.1,
+  "DRAWS": 20
+ },
+ "n_aliased": 5,
+ "n_benign": 6,
+ "truth": [
+  {
+   "bag": "DeepSight_20260905_141654",
+   "cls": "benign",
+   "d_revisit_truth": 0.013111966626586646,
+   "chord": 0.8040434821887238
+  },
+  {
+   "bag": "DeepSight_20260905_173822",
+   "cls": "benign",
+   "d_revisit_truth": 0.4378700650852179,
+   "chord": 0.871651415995183
+  },
+  {
+   "bag": "DeepSight_20260905_201108",
+   "cls": "face-aliased",
+   "d_revisit_truth": 18.690497645161606,
+   "chord": 33.29024886757587
+  },
+  {
+   "bag": "DeepSight_20260912_132725",
+   "cls": "benign",
+   "d_revisit_truth": 0.2345168399230451,
+   "chord": 1.8154085227379049
+  },
+  {
+   "bag": "DeepSight_20260921_232316",
+   "cls": "face-aliased",
+   "d_revisit_truth": 19.988572807792064,
+   "chord": 24.589869748905183
+  },
+  {
+   "bag": "DeepSight_20260922_000133",
+   "cls": "face-aliased",
+   "d_revisit_truth": 20.357440103066303,
+   "chord": 24.254143241428892
+  },
+  {
+   "bag": "DeepSight_20260922_230945",
+   "cls": "face-aliased",
+   "d_revisit_truth": 20.426078269257285,
+   "chord": 24.36619828629435
+  },
+  {
+   "bag": "a50_slamref_seed0_20261014_153610",
+   "cls": "benign",
+   "d_revisit_truth": 0.5950853352386698,
+   "chord": 1.1452075015913692
+  },
+  {
+   "bag": "a50_slamref_seed2_20261014_162539",
+   "cls": "benign",
+   "d_revisit_truth": 1.0170178039903723,
+   "chord": 0.7276685481708662
+  },
+  {
+   "bag": "a50_slamned_seed0_20261016_160033",
+   "cls": "face-aliased",
+   "d_revisit_truth": 20.365574758771075,
+   "chord": 23.90843394717238
+  },
+  {
+   "bag": "a50_slamdrift_seed0_20261016_190745",
+   "cls": "benign",
+   "d_revisit_truth": 0.8499827412424371,
+   "chord": 0.903165237884355
+  }
+ ],
+ "real_dr": [
+  {
+   "bag": "a50_slamref_seed0_20261014_153610",
+   "cls": "benign",
+   "t": 1056.0736808776855,
+   "d_revisit_truth": 0.5950853352386698,
+   "d_revisit_dr": 0.5326889258951444,
+   "dr_error_at_closure": 0.05575235637636604,
+   "chord": 1.1452075015913692
+  },
+  {
+   "bag": "a50_slamref_seed2_20261014_162539",
+   "cls": "benign",
+   "t": 1034.1231000423431,
+   "d_revisit_truth": 1.0170178039903723,
+   "d_revisit_dr": 0.9847634518389661,
+   "dr_error_at_closure": 0.12543141485977452,
+   "chord": 0.7276685481708662
+  },
+  {
+   "bag": "a50_slamned_seed0_20261016_160033",
+   "cls": "face-aliased",
+   "t": 572.8668358325958,
+   "d_revisit_truth": 20.365574758771075,
+   "d_revisit_dr": 20.266302797046244,
+   "dr_error_at_closure": 0.1218902400276014,
+   "chord": 23.90843394717238
+  },
+  {
+   "bag": "a50_slamdrift_seed0_20261016_190745",
+   "cls": "benign",
+   "t": 1015.3050968647003,
+   "d_revisit_truth": 0.8499827412424371,
+   "d_revisit_dr": 1.0721672112532554,
+   "dr_error_at_closure": 0.2696240751504858,
+   "chord": 0.903165237884355
+  }
+ ],
+ "sweep": [
+  {
+   "X": 0,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 0.3,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 1,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 2,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 3,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 5,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 7,
+   "size": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.79,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 10,
+   "size": {
+    "tpr": 0.8,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.57,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 14,
+   "size": {
+    "tpr": 0.4,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.07,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 18,
+   "size": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.0
+   }
+  },
+  {
+   "X": 24,
+   "size": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.5
+   }
+  },
+  {
+   "X": 30,
+   "size": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 0.3333333333333333
+   }
+  },
+  {
+   "X": 40,
+   "size": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "revisit": {
+    "tpr": 0.0,
+    "fpr": 0.0
+   },
+   "chord": {
+    "tpr": 1.0,
+    "fpr": 1.0
+   }
+  }
+ ]
+}

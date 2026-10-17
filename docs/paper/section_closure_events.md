@@ -86,23 +86,31 @@ vehicle is scanning faces it has not yet visited; the benign ones fall
 between 1014 and 1056 s, when it returns to its starting face, the one
 place in a single circuit where a correct revisit exists.
 
-The five also share a destination. Whatever bearing they start from (about
-0 degrees in four cases, -89 in one), all five place the estimate at a
-bearing of +85 to +89 degrees about the axis. If the confusion were between
-arbitrary faces the destination would vary. This suggests a single earlier
-face is winning the match, and it matters for any gate designed to reject
-such closures. We report it as an observation from five events and have not
-tested it prospectively.
+The five also end in the same place, but this is weaker than it looks.
+Four of the five start from the same face (bearing about 0 degrees) and turn
+the same way, so they necessarily end together; the fifth starts from a
+different face (-89 degrees) and also ends at the east face (+89 degrees).
+There are therefore two independent starting faces, not five, and both end at
+the same one. This is consistent with a single earlier face winning the match,
+which would matter for any check designed to reject such closures, but two
+cases are not strong evidence for it and we have not tested it prospectively.
 
 ## [N].4 What one costs
 
-The best-characterised case is the mission of 2026-10-16 16:00. Before the
-closure at 573 s, a similarity fitted to the 7253 preceding SLAM poses leaves
-a residual of 0.31 m. After it, the residual over the whole run is 10.5 m,
-and the map fragments twice and does not recover. A navigation filter that
-trusts SLAM would, from that moment, hold a position wrong by about 24 m
-and aim at the wrong face. We have inspected
-this consequence in one mission only.
+We measured the cost in all five missions that contain a wrong-face closure.
+Before the closure, a similarity fitted to the preceding SLAM poses leaves a
+residual of 0.29 to 0.66 m. With that alignment held fixed, the median position
+error of the SLAM pose over the two minutes that begin 10 s after the closure
+is 13 to 33 m (13.2, 17.0, 17.4, 24.0 and 33.1 m); refitting one similarity to
+each whole run leaves 6.4 to 12.6 m. In every one of the five missions the SLAM
+map re-initialised at least once afterwards. In the best-characterised mission
+(2026-10-16 16:00) it re-initialised twice, 537 s and 564 s after the closure,
+and did not recover. We do not show that the closure causes the
+re-initialisation: two of the five missions re-initialised within seconds of it
+(7 s), one only 471 s later, and re-initialisation also occurs in missions
+whose only closure is benign (the 2026-10-16 19:07 mission re-initialised at
+1037 s). A navigation filter that trusts SLAM through the closure would hold a
+position wrong by tens of metres and aim at the wrong face.
 
 ## [N].5 How often
 
@@ -134,7 +142,9 @@ so it should be read as "not rare", not as a rate for any one system.
 
 ### Status note (not for the manuscript)
 
-**Settled:** the revisit test (`eval/closure_revisit.py`: nearest earlier
+**Settled:** the cost in all five wrong-face missions (median error 13-33 m
+after the closure against a 0.3-0.7 m fit before it; map re-initialised
+afterwards in each, causation not shown); the revisit test (`eval/closure_revisit.py`: nearest earlier
 visit 18.7-20.5 m at the five face-aliased closures, 0.0-1.0 m at the six
 benign, estimate-after within 0.3 m of an earlier true visit; both criteria
 fixed before computing); the twelve classifications and the numbers in Table [T], which
@@ -143,13 +153,16 @@ logged closures across 28 missions; the 0.005 and the 6-37 % interval, which
 are arithmetic on those counts.
 
 **Not yet verified:**
-1. *The shared destination bearing* is five events, found after looking.
-2. *The cost* is one mission. The other four aliased missions have not been
-   examined for fragmentation or residual.
-3. *Turbine axis position* (20, 0) is assumed for all missions. Radii of
-   15 to 18 m for every event suggest it holds for the older scenarios too,
-   but it was not checked per scenario.
-4. The section describes the 5 and 6 as "events" not independent trials: the
+1. *The shared destination bearing* is two independent cases, not five: four of
+   the five closures start from the same face and so end together. Checked
+   2026-10-17; the earlier wording overstated it and is corrected above.
+2. *Turbine axis position* (20, 0): checked 2026-10-17. The scenario file
+   places the structure under inspection at (20.0, 0.0), and the true orbit
+   of each of the seven older missions fits a circle centred within 0.04 m
+   of it (radius 17.05 m). The four newer missions fit 0.1 to 1.7 m off
+   because the controller steers on its own filtered estimate, so the
+   vehicle's orbit follows its navigation error; that is not an axis offset.
+3. The section describes the 5 and 6 as "events" not independent trials: the
    two events in one mission are not independent, and the missions were not
    sampled from a defined population.
 
@@ -177,8 +190,9 @@ all near the start. **(b)** Size of each correction against the turn it makes
 about the structure's axis; shaded bands are the 15 degree windows around 90
 and 180 degrees and the dashed line is the 3 m threshold for a benign
 correction. All five wrong-face closures end on the east side of the structure
-(bearing +85 to +89 degrees); this is an observation from five events, found
-after looking, and has not been tested prospectively.
+(bearing +85 to +89 degrees), but four of them start from the same face, so
+there are only two independent starting points; this has not been tested
+prospectively.
 
 **Figure [B].** The cost of one wrong-face closure (mission of 2026-10-16
 16:00), for the SLAM pose with its alignment fitted on the 7253 poses before the

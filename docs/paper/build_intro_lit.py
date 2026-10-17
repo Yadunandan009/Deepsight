@@ -110,16 +110,20 @@ p("Two onboard modalities are available and neither is sufficient by itself. "
   "began.")
 
 p("That argument is the standard one, and it contains a flaw specific to the "
-  "asset class. Offshore jacket structures are built with four-fold symmetry "
-  "about their vertical axis, not by coincidence but because a symmetric "
-  "truss distributes environmental loading from any heading equally. The four "
-  "faces are, to engineering tolerance, geometrically interchangeable, and we "
-  "confirm this independently from sonar and from the CAD model. A "
+  "asset class. Jacket foundations are lattices of tubular steel with three, "
+  "four or more legs, and four-legged designs with a repeating bracing "
+  "pattern are common; the primary steel of such a structure is close to "
+  "four-fold symmetric about its vertical axis. Appurtenances such as boat "
+  "landings, cable tubes, ladders and anodes break that symmetry to a degree "
+  "that varies between structures, and how much they matter is an open "
+  "question that we do not resolve here. In the idealised case the four "
+  "faces are, to engineering tolerance, geometrically interchangeable, which "
+  "we confirm from the CAD model and from sonar. A "
   "place-recognition system, whether it matches appearance through a visual "
   "vocabulary or geometry through point-cloud registration, is therefore "
   "being asked to tell apart views that the structure's designer deliberately "
   "made identical. Perceptual aliasing of this kind is well known in general "
-  "terms [8], [9]. What is specific here is that it can be predicted from the "
+  "terms [8], [23]. What is specific here is that it can be predicted from the "
   "engineering drawing before the vehicle enters the water, and that it has a "
   "precise geometric signature: a wrong-face match is the correct estimate "
   "rotated about the structure's vertical axis by a multiple of ninety "
@@ -137,9 +141,10 @@ p("We tested whether that signature occurs. We recorded every loop closure "
   "anywhere it had been, while the corrected estimate was placed within 0.3 m "
   "of somewhere it had; at every small correction the vehicle was back "
   "somewhere it had been. The closure logs show at least five of 28 missions "
-  "affected, and in the best-characterised case a single closure took the "
-  "position error from 0.3 m to tens of metres and fragmented the map, which "
-  "did not recover.")
+  "affected. In all five affected missions the aligned SLAM position was "
+  "wrong by a median of 13 to 33 m in the two minutes after the closure, "
+  "against a fit of 0.3 to 0.7 m before it, and the map re-initialised at "
+  "least once afterwards.")
 
 p("The consequence is less obvious than the failure. On the missions studied "
   "here, a single orbit of about 130 m, dead reckoning from the Doppler "
@@ -148,7 +153,10 @@ p("The consequence is less obvious than the failure. On the missions studied "
   "per hour. A heading error displaces an estimate in proportion to its "
   "distance from where heading was last known, and an orbit never takes the "
   "vehicle far from where it began. Fusing the SLAM pose into the filter made "
-  "the estimate worse, not better. The case for visual SLAM on a mission of "
+  "the estimate worse, not better, and with it the sonar model of the structure "
+  "that the vehicle exists to produce: dead reckoning reconstructs it to about "
+  "0.1 m against the CAD model, and the corrected fused filter to 0.4 and 1.8 m "
+  "in the two recordings made with it. The case for visual SLAM on a mission of "
   "this length therefore cannot rest on accuracy. It rests on missions long "
   "enough, or vehicles poorly enough instrumented, that dead reckoning stops "
   "being sufficient, and on the assumption that SLAM does no harm in the "
@@ -175,7 +183,10 @@ p("This leads to the position this paper takes. A known symmetry should be "
   "characterised before it is suffered. An inspection vehicle, unlike a "
   "general-purpose SLAM platform, always knows what it is inspecting; a CAD "
   "model of the asset exists before the mission is planned, and generic SLAM "
-  "discards that prior. We quantify the symmetry of the target as an "
+  "discards that prior. Rejecting false loop closures is itself an "
+  "established problem, addressed by robust back-ends [33], [34] and by "
+  "consistency checks among closures [35]; what we ask is whether a known "
+  "symmetry of the target offers a sharper test. We quantify the symmetry of the target as an "
   "a-priori index computed from the model, and we argue that a correction "
   "whose geometry corresponds to a symmetry operation of the structure "
   "should be arbitrated by a modality that is blind to appearance: dead "
@@ -204,6 +215,11 @@ for c in (
     "structure: a classification rule fixed in advance, twelve closures from "
     "eleven missions, five of them wrong-face rotations of the estimate about "
     "the structure's axis, each confirmed against the ground-truth trajectory.",
+    "An inspection-product evaluation: the structure reconstructed from the "
+    "vehicle's own sonar under each navigation source and scored against its CAD "
+    "model. Dead reckoning reconstructs it to a median of 11 cm RMS against a "
+    "sensor floor of 7 cm; a vehicle trusting SLAM through a wrong-face closure "
+    "reconstructs it to 3.8 to 7.5 m.",
     "Evidence that on a single-orbit inspection mission dead reckoning is "
     "accurate to a fraction of a metre and that fusing SLAM, as commonly "
     "done, degrades it, together with the geometric reason heading drift "
@@ -308,8 +324,8 @@ p("Transplanting these systems below the waterline is not routine, and the "
   "glow; and the scene itself — a painted steel member, a sandy seabed, a "
   "uniform field of marine growth — frequently lacks the corner structure "
   "that ORB and similar detectors require. Köser and Frese [17] give a "
-  "thorough account of these challenges, and Hidalgo and Bräunl [18] survey "
-  "the underwater SLAM literature. Image enhancement is commonly applied as a "
+  "thorough account of these challenges, and Heshmat et al. [18] survey "
+  "deep-learning-enhanced underwater SLAM. Image enhancement is commonly applied as a "
   "pre-processing stage, with colour-balance-and-fusion methods [19] and "
   "learned enhancement trained on benchmark datasets [20] both in use; "
   "enhancement improves feature yield but does not create structure where the "
@@ -419,22 +435,25 @@ refs = [
  "J. Engel, V. Koltun and D. Cremers, “Direct sparse odometry,” IEEE Trans. PAMI, vol. 40, no. 3, pp. 611–625, 2018.",
  "T. Qin, P. Li and S. Shen, “VINS-Mono: a robust and versatile monocular visual–inertial state estimator,” IEEE Trans. Robotics, vol. 34, no. 4, pp. 1004–1020, 2018.",
  "M. Kaess, H. Johannsson, R. Roberts, V. Ila, J. J. Leonard and F. Dellaert, “iSAM2: incremental smoothing and mapping using the Bayes tree,” Int. J. Robotics Research, vol. 31, no. 2, pp. 216–235, 2012.",
- "K. Köser and U. Frese, “Challenges in underwater visual navigation and SLAM,” in AI Technology for Underwater Robots, Springer, 2020.",
- "F. Hidalgo and T. Bräunl, “Review of underwater SLAM techniques,” Int. Conf. Automation, Robotics and Applications (ICARA), 2015.",
+ "K. Köser and U. Frese, “Challenges in underwater visual navigation and SLAM,” in AI Technology for Underwater Robots, Springer, 2020, pp. 125–135.",
+ "M. Heshmat, L. Saad Saoud, M. Abujabal, A. Sultan, M. Elmezain, L. Seneviratne and I. Hussain, “Underwater SLAM meets deep learning: challenges, multi-sensor integration, and future directions,” Sensors, vol. 25, no. 11, art. 3258, 2025.",
  "C. O. Ancuti, C. Ancuti, C. De Vleeschouwer and P. Bekaert, “Color balance and fusion for underwater image enhancement,” IEEE Trans. Image Processing, vol. 27, no. 1, pp. 379–393, 2018.",
  "C. Li et al., “An underwater image enhancement benchmark dataset and beyond,” IEEE Trans. Image Processing, vol. 29, pp. 4376–4389, 2020.",
- "S. Rahman, A. Quattrini Li and I. Rekleitis, “SVIn2: a multi-sensor fusion-based underwater SLAM system,” Int. J. Robotics Research, 2022 (see also IROS 2019).",
- "M. Ferrera, V. Creuze, J. Moras and P. Trouvé-Peloux, “AQUALOC: an underwater dataset for visual–inertial–pressure localization,” Int. J. Robotics Research, vol. 38, no. 14, 2019.",
+ "S. Rahman, A. Quattrini Li and I. Rekleitis, “SVIn2: a multi-sensor fusion-based underwater SLAM system,” Int. J. Robotics Research, vol. 41, no. 11–12, pp. 1022–1042, 2022.",
+ "M. Ferrera, V. Creuze, J. Moras and P. Trouvé-Peloux, “AQUALOC: an underwater dataset for visual–inertial–pressure localization,” Int. J. Robotics Research, vol. 38, no. 14, pp. 1549–1559, 2019.",
  "M. Cummins and P. Newman, “FAB-MAP: probabilistic localization and mapping in the space of appearance,” Int. J. Robotics Research, vol. 27, no. 6, pp. 647–665, 2008.",
  "T. Moore and D. Stouch, “A generalized extended Kalman filter implementation for the Robot Operating System,” Intelligent Autonomous Systems 13, 2014.",
  "B. K. P. Horn, “Closed-form solution of absolute orientation using unit quaternions,” J. Optical Society of America A, vol. 4, no. 4, pp. 629–642, 1987.",
  "S. Umeyama, “Least-squares estimation of transformation parameters between two point patterns,” IEEE Trans. PAMI, vol. 13, no. 4, pp. 376–380, 1991.",
  "J. Sturm, N. Engelhard, F. Endres, W. Burgard and D. Cremers, “A benchmark for the evaluation of RGB-D SLAM systems,” IROS, 2012.",
  "Z. Zhang and D. Scaramuzza, “A tutorial on quantitative trajectory evaluation for visual(-inertial) odometry,” IROS, 2018.",
- "F. Bonsignorio and A. P. del Pobil, “Toward replicable and measurable robotics research,” IEEE Robotics and Automation Magazine, vol. 22, no. 3, 2015.",
+ "F. Bonsignorio and A. P. del Pobil, “Toward replicable and measurable robotics research,” IEEE Robotics and Automation Magazine, vol. 22, no. 3, pp. 32–35, 2015.",
  "B. A. Nosek, C. R. Ebersole, A. C. DeHaven and D. T. Mellor, “The preregistration revolution,” PNAS, vol. 115, no. 11, pp. 2600–2606, 2018.",
  "M. M. M. Manhães, S. A. Scherer, M. Voss, L. R. Douat and T. Rauschenbach, “UUV Simulator: a Gazebo-based package for underwater intervention and multi-robot simulation,” OCEANS, 2016.",
  "P. Cieślak, “Stonefish: an advanced open-source simulation tool designed for marine robotics, with a ROS interface,” OCEANS Marseille, 2019.",
+ "N. Sünderhauf and P. Protzel, “Switchable constraints for robust pose graph SLAM,” IROS, pp. 1879–1884, 2012.",
+ "E. Olson and P. Agarwal, “Inference on networks of mixtures for robust robot mapping,” Int. J. Robotics Research, vol. 32, no. 7, 2013 (first presented at RSS 2012).",
+ "J. G. Mangelson, D. Dominic, R. M. Eustice and R. Vasudevan, “Pairwise consistent measurement set maximization for robust multi-robot map merging,” ICRA, pp. 2916–2923, 2018.",
 ]
 for i, r in enumerate(refs, 1):
     d.add_paragraph(f"[{i}] {r}", style="List Number" if False else None)
@@ -469,6 +488,32 @@ for s_ in (
 ):
     d.add_paragraph(s_, style="List Bullet")
 
+p("Checked on 2026-10-17 by web search (details: docs/paper/CITATION_CHECK.md):", italic=True)
+for s_ in (
+    "Of the 29 real references, 25 were confirmed on authors, venue, year and "
+    "pages; three exist but a detail is unconfirmed or differs between sources "
+    "([15] volume and pages, [16] page range, [29] confirmed by one source); "
+    "one, [18], could not be found and has been replaced by a verified survey. Three "
+    "references ([1], [2], [5]) remain placeholders. Only the titles and "
+    "abstracts were checked: whether each paper supports the sentence it is "
+    "cited for was checked for [8], [9] and [23] only. [9] is about data "
+    "association and is used correctly for joint-compatibility checking, but "
+    "it is not a source for perceptual aliasing, so the aliasing sentence now "
+    "cites [8] and [23].",
+    "The premise that jackets are four-fold symmetric by engineering design "
+    "is NOT supported. Sources found describe jackets with three, four or "
+    "more legs and with boat landings and cable tubes that break symmetry; "
+    "none says symmetry is a design aim. The Introduction was rewritten to "
+    "say 'close to four-fold symmetric in the primary steel, symmetry broken "
+    "by appurtenances, effect not resolved here'. The jacket description "
+    "still needs an academic source; only project pages and patents were found.",
+    "Prior art on rejecting false loop closures is substantial and is now "
+    "acknowledged: switchable constraints [33], max-mixtures [34], pairwise "
+    "consistency [35], and others listed in CITATION_CHECK.md. The novelty "
+    "claim is narrowed accordingly.",
+):
+    d.add_paragraph(s_, style="List Bullet")
+
 p("Open, and NOT safe to assume in the prose:", italic=True)
 for s_ in (
     "R3, dose-response. The earlier p = 0.0087 was computed from bridge re-lock "
@@ -493,7 +538,11 @@ for s_ in (
     "synthesised transform; never flown. A live mission is needed before "
     "anything is claimed about them.",
     "The shared landing bearing of the five wrong-face closures (+85 to +89 "
-    "degrees). Five events, found after looking, not tested prospectively.",
+    "degrees). Two independent starting faces, not five, so weak evidence; "
+    "not tested prospectively.",
+    "Whether a wrong-face closure causes the map re-initialisations that "
+    "follow it. They follow it in all five missions but also occur in "
+    "missions whose only closure was benign.",
     "Whether SLAM helps on any mission here. Not shown. The heading-drift "
     "experiment that would show it was void, and a single circuit suppresses "
     "heading drift by about 3.5 times in position error, so longer missions "
