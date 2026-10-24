@@ -1,0 +1,107 @@
+[
+ {
+  "gate": "current: fixed 5 m",
+  "params": {
+   "floor": 5.0,
+   "k_drift": 0.0,
+   "cap": 5.0
+  },
+  "probation": false,
+  "bad": 5893,
+  "bad_rejected": 1,
+  "good": 94626,
+  "good_rejected": 0,
+  "passes": false
+ },
+ {
+  "gate": "fixed 1.5 m",
+  "params": {
+   "floor": 1.5,
+   "k_drift": 0.0
+  },
+  "probation": false,
+  "bad": 5893,
+  "bad_rejected": 4502,
+  "good": 94626,
+  "good_rejected": 0,
+  "passes": false
+ },
+ {
+  "gate": "fixed 1.2 m",
+  "params": {
+   "floor": 1.2,
+   "k_drift": 0.0
+  },
+  "probation": false,
+  "bad": 5893,
+  "bad_rejected": 5355,
+  "good": 94626,
+  "good_rejected": 11,
+  "passes": false
+ },
+ {
+  "gate": "fixed 1.0 m",
+  "params": {
+   "floor": 1.0,
+   "k_drift": 0.0
+  },
+  "probation": false,
+  "bad": 5893,
+  "bad_rejected": 5694,
+  "good": 94626,
+  "good_rejected": 113,
+  "passes": true
+ },
+ {
+  "gate": "1.0 m + 0.0015/m",
+  "params": {
+   "floor": 1.0,
+   "k_drift": 0.0015
+  },
+  "probation": false,
+  "bad": 5893,
+  "bad_rejected": 5375,
+  "good": 94626,
+  "good_rejected": 28,
+  "passes": false
+ },
+ {
+  "gate": "1.0 m + 0.003/m",
+  "params": {
+   "floor": 1.0,
+   "k_drift": 0.003
+  },
+  "probation": false,
+  "bad": 5893,
+  "bad_rejected": 4998,
+  "good": 94626,
+  "good_rejected": 7,
+  "passes": false
+ },
+ {
+  "gate": "1.0 m + 0.003/m, probation",
+  "params": {
+   "floor": 1.0,
+   "k_drift": 0.003
+  },
+  "probation": true,
+  "bad": 5893,
+  "bad_rejected": 5255,
+  "good": 94626,
+  "good_rejected": 76,
+  "passes": false
+ },
+ {
+  "gate": "1.0 m, probation",
+  "params": {
+   "floor": 1.0,
+   "k_drift": 0.0
+  },
+  "probation": true,
+  "bad": 5893,
+  "bad_rejected": 5694,
+  "good": 94626,
+  "good_rejected": 113,
+  "passes": true
+ }
+]

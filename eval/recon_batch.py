@@ -8,6 +8,10 @@ Three groups, each answering a different question:
   paired     one run, both filters: what does fusing SLAM do to the model?
   wrong_face missions with a wrong-face closure: what would a vehicle that
              trusted SLAM through it have built?
+  sim2       every flight in docs/experiments/flights_manifest.csv (the Sim(2)
+             bridge and the symmetry control). The closure time for the
+             trust-SLAM counterfactual is the flight's first face-aliased
+             closure from eval/flights_summary.py; run that first.
 
 Run:  python3 eval/recon_batch.py            (skips what is already cached)
 """
@@ -42,10 +46,20 @@ GROUPS = {
 }
 
 
+def sim2_jobs():
+    f = os.path.join(HERE, "figures", "flights_summary.json")
+    if not os.path.exists(f):
+        return []
+    # stock scenario only: L4 and L5 carry hardware the bare-jacket CAD does not contain
+    return [("sim2", os.path.basename(r["bag"]), r["first_aliased_t"])
+            for r in json.load(open(f)) if r["scenario"] == "bluerov2_turbine"]
+
+
 def main():
     cache = json.load(open(OUT)) if os.path.exists(OUT) else {}
     jobs = [(g, b, None) for g in ("dr_only", "paired") for b in GROUPS[g]]
     jobs += [("wrong_face", b, t) for b, t in GROUPS["wrong_face"].items()]
+    jobs += sim2_jobs()
     for g, b, tc in jobs:
         key = f"{g}/{b}"
         if key in cache:

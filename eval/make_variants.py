@@ -136,7 +136,7 @@ def assert_submerged(mesh_rel, scale, depth, allow_breach=False):
             f'inside the {SURFACE_CLEARANCE_M} m surface clearance. Reduce scale or depth.')
 
 
-def hardware_blocks(face_idx, anode_scale, n_anodes, include_riser=True):
+def hardware_blocks(face_idx, anode_scale, n_anodes, include_riser=True, lat=0.0, tag=''):
     """A vertical pipe run plus a column of sacrificial anodes on one face.
 
     Both are mounted at ATTACH_RADIUS_M so they sit against the bracing
@@ -144,8 +144,10 @@ def hardware_blocks(face_idx, anode_scale, n_anodes, include_riser=True):
     """
     import math
     b = math.radians(FACE_BEARINGS[face_idx])
-    x = TURBINE_X + ATTACH_RADIUS_M * math.cos(b)
-    y = TURBINE_Y + ATTACH_RADIUS_M * math.sin(b)
+    # lat shifts the whole run sideways along the face (metres, tangential), so
+    # faces can differ by WHERE their hardware sits and not only by what it is.
+    x = TURBINE_X + ATTACH_RADIUS_M * math.cos(b) - lat * math.sin(b)
+    y = TURBINE_Y + ATTACH_RADIUS_M * math.sin(b) + lat * math.cos(b)
     out = []
 
     # J-tube / riser. Built from contiguous segments rather than one
@@ -165,7 +167,7 @@ def hardware_blocks(face_idx, anode_scale, n_anodes, include_riser=True):
     while include_riser and depth_cursor > RISER_TOP_M:
         assert_submerged(PIPE_MESH, 1.0, depth_cursor, allow_breach=True)
         out.append(f"""
-\t<static name="FaceHardware{face_idx}_riser{seg}" type="model">
+\t<static name="FaceHardware{face_idx}{tag}_riser{seg}" type="model">
 \t\t<physical>
 \t\t\t<mesh filename="{PIPE_MESH}" scale="1.0"/>
 \t\t\t<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
@@ -184,7 +186,7 @@ def hardware_blocks(face_idx, anode_scale, n_anodes, include_riser=True):
         depth = MARKER_DEPTH_MIN + (i + 0.5) / max(1, n_anodes) * (MARKER_DEPTH_MAX - MARKER_DEPTH_MIN)
         assert_submerged(ANODE_MESH, anode_scale, depth)
         out.append(f"""
-	<static name="FaceHardware{face_idx}_anode{i}" type="model">
+	<static name="FaceHardware{face_idx}{tag}_anode{i}" type="model">
 		<physical>
 			<mesh filename="{ANODE_MESH}" scale="{anode_scale}"/>
 			<origin rpy="0.0 1.571 0.0" xyz="0.0 0.0 0.0"/>
@@ -253,6 +255,80 @@ LEVELS = {
 }
 
 
+# L5: THE CONTROL THAT L4 SHOULD HAVE BEEN. L4 put the same hardware on faces
+# 0 and 1 (CAD fitness 0.947 between them) and left 2 and 3 bare (1.000), so
+# its mean index of 0.72 hid two near-identical pairs, and both flights'
+# wrong-face closures turned exactly 90 deg between a near-identical pair.
+# Here every face carries a DIFFERENT combination of the same two real
+# hardware types, so no pair of faces is alike. The target is stated on the
+# worst pair, not the mean: score with eval/structure_symmetry.py and read
+# the pairwise table.
+PER_FACE = {
+    0: [dict(anode_scale=0,  n_anodes=0,  riser=True,  lat=l) for l in (-4.0, 0.0, 4.0)],  # three risers
+    1: [dict(anode_scale=20, n_anodes=12, riser=False, lat=l) for l in (-3.0, 3.0)],       # two anode columns
+    2: [dict(anode_scale=0,  n_anodes=0,  riser=False, lat=0.0, run=True)],                # horizontal runs
+    3: [],                                                                                 # bare
+}
+
+
+RUN_DEPTHS_M = [8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]
+
+
+def face_run(face_idx, lat=0.0, half_len=8.0):
+    """Horizontal pipe run across one face at the two run depths, tangential to
+    the structure, so the face is distinguished by a feature the others lack."""
+    import math
+    b = math.radians(FACE_BEARINGS[face_idx])
+    seg_len = mesh_z_extent(PIPE_MESH, 1.0)[1] - mesh_z_extent(PIPE_MESH, 1.0)[0]
+    n = max(1, int(math.ceil(2 * half_len / (seg_len * 0.85))))
+    out = []
+    for j, hd in enumerate(RUN_DEPTHS_M):
+        for i in range(n):
+            t = lat - half_len + 2 * half_len * (i + 0.5) / n
+            hx = TURBINE_X + ATTACH_RADIUS_M * math.cos(b) - t * math.sin(b)
+            hy = TURBINE_Y + ATTACH_RADIUS_M * math.sin(b) + t * math.cos(b)
+            out.append(f"""
+\t<static name="FaceRun{face_idx}_{j}_seg{i}" type="model">
+\t\t<physical>
+\t\t\t<mesh filename="{PIPE_MESH}" scale="1.0"/>
+\t\t\t<origin rpy="0.0 1.571 0.0" xyz="0.0 0.0 0.0"/>
+\t\t</physical>
+\t\t<material name="Aluminium"/>
+\t\t<look name="{PIPE_LOOK}"/>
+\t\t<world_transform rpy="0.0 0.0 {b + math.pi/2:.4f}" xyz="{hx:.3f} {hy:.3f} {hd:.3f}"/>
+\t</static>
+""")
+    return ''.join(out)
+
+
+def build_variant_perface(per_face, out_path):
+    src = open(STOCK).read()
+    body = ''.join(hardware_blocks(f, sp['anode_scale'], sp['n_anodes'], sp['riser'],
+                                   sp.get('lat', 0.0), tag=f'_{k}')
+                   + (face_run(f, sp.get('lat', 0.0)) if sp.get('run') else '')
+                   for f, items in sorted(per_face.items())
+                   for k, sp in enumerate(items))
+    desc = '; '.join(f"face {f}: {len(items)} item(s)"
+                     for f, items in sorted(per_face.items()))
+    comment_body = (f' Symmetry variant L5, every face different. {desc}.\n'
+                    f'\t     Generated by eval/make_variants.py; do not hand edit. ')
+    if '--' in comment_body:
+        raise SystemExit('refusing to emit an XML comment containing a double hyphen')
+    anchor = '\t<include file="$(find stonefish_bluerov2)/scenarios/bluerov2.scn">'
+    if anchor not in src:
+        raise SystemExit('could not find the vehicle include in the stock scenario')
+    out = src.replace(anchor, f'\n\t<!--{comment_body}-->\n' + body + '\n' + anchor, 1)
+    with open(out_path, 'w') as fh:
+        fh.write(out)
+    link = os.path.join(INSTALL_SCN, os.path.basename(out_path))
+    if os.path.isdir(INSTALL_SCN) and not os.path.exists(link):
+        try:
+            os.symlink(out_path, link)
+        except OSError:
+            pass
+    return out_path
+
+
 def build_variant(spec, out_path):
     anode_scale, n_anodes = spec['anode_scale'], spec['n_anodes']
     src = open(STOCK).read()
@@ -296,6 +372,12 @@ def main():
 
     print('Generating symmetry variants')
     made = []
+    if 'L5' in args.levels:
+        args.levels = [l for l in args.levels if l != 'L5']
+        path = os.path.join(SCN_DIR, 'bluerov2_turbine_sym_l5.scn')
+        build_variant_perface(PER_FACE, path)
+        made.append(('L5', path))
+        print(f'  L5  every face different        bluerov2_turbine_sym_l5.scn')
     for lv in args.levels:
         spec = LEVELS[lv]
         name = f'bluerov2_turbine_sym_{lv.lower()}.scn'

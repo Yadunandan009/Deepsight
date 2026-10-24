@@ -211,7 +211,9 @@ def slam_trust_track(slam, truth, t_closure):
     """SLAM through an alignment fitted before the closure and held fixed."""
     import closure_events as ce
     t, xy = slam[:, 0], slam[:, 1:3]
-    pre = t < t_closure
+    # SLAM can publish a pose before the truth track starts; the truth
+    # interpolator cannot extrapolate, so fit only inside its time range.
+    pre = (t < t_closure) & (t >= truth.t[0]) & (t <= truth.t[-1])
     tp, _ = truth.at(t[pre])
     to_w, th, k, resid = ce.fit_similarity(xy[pre], tp[:, :2])
     P = np.array([to_w(s) for s in xy])

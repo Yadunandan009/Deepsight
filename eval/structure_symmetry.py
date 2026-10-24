@@ -323,20 +323,30 @@ def main():
     print('  points per face sector: ' + ', '.join(f'f{i}={len(faces[i])}' for i in range(4)))
 
     print(f'\n  cross-face ICP (fitness @ {ICP_INLIER_M:.1f} m inlier threshold)')
-    print(f"    {'pair':>10s} {'fitness':>9s} {'RMSE (m)':>10s}")
+    print(f"    {'pair':>10s} {'fitness':>9s} {'RMSE (m)':>10s} {'reverse':>9s} {'min both':>9s}")
     fits = []
+    mins = []
     for i in range(4):
         for j in range(i + 1, 4):
             if len(faces[i]) < 50 or len(faces[j]) < 50:
                 continue
             f, e = icp(faces[i], faces[j])
+            # ICP fitness is one-way: the share of face i's points that land
+            # near face j. A face that is a SUBSET of another scores 1.000 in
+            # that direction while the two are plainly different. Two faces
+            # are interchangeable only if each covers the other, so the pair
+            # score that matters is the lower of the two directions.
+            fr, _ = icp(faces[j], faces[i])
             fits.append(f)
-            print(f'    f{i} vs f{j} {f:9.3f} {e:10.3f}')
+            mins.append(min(f, fr))
+            print(f'    f{i} vs f{j} {f:9.3f} {e:10.3f} {fr:9.3f} {min(f, fr):9.3f}')
 
     if fits:
         idx = float(np.mean(fits))
         print(f'\n  SYMMETRY INDEX (mean cross-face fitness) = {idx:.3f}')
         print(f'    spread: {min(fits):.3f} to {max(fits):.3f}')
+        print(f'  WORST PAIR (highest min-over-both-directions) = {max(mins):.3f}'
+              f'   mean of pair minima = {float(np.mean(mins)):.3f}')
         print('\n  Reference: TASK_15 measured 0.996-1.000 on this structure from')
         print('  sonar-derived geometry, entirely independently. A CAD-derived')
         print('  index in that range means the cheap a-priori measure agrees with')
