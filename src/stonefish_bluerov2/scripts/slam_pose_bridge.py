@@ -311,6 +311,39 @@ class SlamPoseBridge(Node):
         self.declare_parameter('slam_frame', 'enu')
         self.declare_parameter('reference_odom', '/bluerov2/odometry/filtered')
         self.declare_parameter('output_topic', '/bluerov2/robot_pose_slam_ekf')
+
+        # Adaptive consistency gate (stonefish_bluerov2/consistency_gate.py).
+        # OFF by default: with adaptive_gate:=false every behaviour in this
+        # file is the fixed EKF_CONSISTENCY_MAX gate above, unchanged, so
+        # existing runs stay reproducible. Turn it on only together with
+        # reference_odom=/bluerov2/odometry/dr (dr_reference:=true): the
+        # gate's width is an error budget for dead reckoning, and the
+        # primary filter is not dead reckoning.
+        self.declare_parameter('adaptive_gate', False)
+        self.declare_parameter('gate_floor', 1.0)
+        self.declare_parameter('gate_k_drift', 0.0)
+        self.declare_parameter('gate_probation_poses', 25)
+        self.declare_parameter('gate_probation_spread', 8.0)
+        self.gate = None
+        if bool(self.get_parameter('adaptive_gate').value):
+            # Imported here, not at the top, so that a workspace which has
+            # not been rebuilt since consistency_gate.py was added still runs
+            # every existing configuration; only adaptive_gate:=true needs
+            # `colcon build --packages-select stonefish_bluerov2`.
+            from stonefish_bluerov2.consistency_gate import ConsistencyGate
+            self.gate = ConsistencyGate(
+                floor=float(self.get_parameter('gate_floor').value),
+                k_drift=float(self.get_parameter('gate_k_drift').value),
+                cap=self.EKF_CONSISTENCY_MAX,
+                probation_poses=int(
+                    self.get_parameter('gate_probation_poses').value),
+                probation_spread=float(
+                    self.get_parameter('gate_probation_spread').value))
+            self.get_logger().info(
+                f'adaptive consistency gate ON: floor={self.gate.floor} m, '
+                f'k_drift={self.gate.k_drift}/m, cap={self.gate.cap} m, '
+                f'probation={self.gate.probation_poses} poses and '
+                f'{self.gate.probation_spread} m spread')
         reference_odom = self.get_parameter('reference_odom').value
         output_topic = self.get_parameter('output_topic').value
         slam_frame = str(
@@ -349,6 +382,8 @@ class SlamPoseBridge(Node):
         self.ekf_x = m.pose.pose.position.x
         self.ekf_y = m.pose.pose.position.y
         self.ekf_z = m.pose.pose.position.z
+        if self.gate is not None:
+            self.gate.update_reference(self.ekf_x, self.ekf_y)
 
     def map_cb(self, m):
         pts = m.width * m.height
@@ -378,6 +413,8 @@ class SlamPoseBridge(Node):
         # fit that just failed.
         self.scale = 1.0
         self.fit_resid = None
+        if self.gate is not None:
+            self.gate.alignment_reset()
 
     def _periodic_refit(self):
         """Timer-driven re-solve from the current sliding window, even
@@ -492,6 +529,8 @@ class SlamPoseBridge(Node):
 
         self.aligned = True
         self.reject_streak = 0
+        if self.gate is not None:
+            self.gate.alignment_changed(spread)
         if not was_aligned:
             self.theta_at_lock = theta
         kind = 'refit' if was_aligned else 'solved'
@@ -572,11 +611,15 @@ class SlamPoseBridge(Node):
         # fused straight into pose0 and can yank the EKF (x,y) far enough
         # to flip the controller's bearing calculation.
         dist = math.hypot(wx - self.ekf_x, wy - self.ekf_y)
-        if dist > self.EKF_CONSISTENCY_MAX:
+        if self.gate is not None:
+            within, limit = self.gate.check(dist)
+        else:
+            within, limit = dist <= self.EKF_CONSISTENCY_MAX, self.EKF_CONSISTENCY_MAX
+        if not within:
             self.reject_streak += 1
             self.get_logger().warn(
                 f'SLAM pose rejected: {dist:.1f}m from EKF '
-                f'(> {self.EKF_CONSISTENCY_MAX}m) streak={self.reject_streak}',
+                f'(> {limit:.2f}m) streak={self.reject_streak}',
                 throttle_duration_sec=2.0)
             if self.reject_streak >= self.MAX_CONSECUTIVE_REJECTS:
                 self.get_logger().warn(
@@ -585,6 +628,17 @@ class SlamPoseBridge(Node):
                 self._reset_alignment()
             return
         self.reject_streak = 0
+
+        # PROBATION (adaptive gate only): a freshly locked alignment is
+        # checked against the floor-width gate but not published until it
+        # has proved itself on enough consecutive poses and a wide enough
+        # window. See consistency_gate.py.
+        if self.gate is not None and not self.gate.may_publish():
+            self.get_logger().info(
+                f'alignment on probation, pose withheld '
+                f'(dist {dist:.2f}m, limit {limit:.2f}m)',
+                throttle_duration_sec=5.0)
+            return
 
         # Apply transform and publish
         out = PoseWithCovarianceStamped()

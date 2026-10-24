@@ -52,6 +52,20 @@ def generate_launch_description():
     )
     slam_frame = LaunchConfiguration('slam_frame')
 
+    # 2a1c. Adaptive consistency gate in the SLAM bridge
+    # (stonefish_bluerov2/consistency_gate.py). Off by default so every
+    # existing run stays reproducible. Use it with dr_reference:=true: its
+    # width is an error budget for dead reckoning, not for the primary filter.
+    adaptive_gate_arg = DeclareLaunchArgument(
+        'adaptive_gate',
+        default_value='false',
+        description='Replace the fixed 5 m SLAM consistency gate with the '
+                    'adaptive gate (1 m floor, optional growth with path, '
+                    'probation after every re-lock). Pair with '
+                    'dr_reference:=true.'
+    )
+    adaptive_gate = LaunchConfiguration('adaptive_gate')
+
     # 2a2. Rendering quality -- was hardcoded to 'high', which drives
     # sustained GPU load/heat hard enough to cause thermal throttling on
     # this laptop (observed: 86C, and camera framerate visibly decaying
@@ -146,7 +160,9 @@ def generate_launch_description():
         parameters=[{'reference_odom': ParameterValue(bridge_reference_odom,
                                                       value_type=str),
                      'slam_frame': ParameterValue(slam_frame,
-                                                  value_type=str)}],
+                                                  value_type=str),
+                     'adaptive_gate': ParameterValue(adaptive_gate,
+                                                     value_type=bool)}],
     )
 
     # 5b. DVL Bridge
@@ -154,7 +170,7 @@ def generate_launch_description():
     # dvl_error:=none      white noise only, as Stonefish models it. This is
     #                      optimistic: it drifts as sqrt(time), not as distance.
     # dvl_error:=a50       adds the scale factor and beam misalignment a real
-    #                      unit has, at Nortek DVL A50 datasheet level. These
+    #                      unit has, at Water Linked DVL A50 datasheet level. These
     #                      are fixed per unit and integrate linearly.
     # dvl_seed:=<int>      which unit you have. Sweep it for a distribution.
     #
@@ -338,6 +354,7 @@ def generate_launch_description():
         dvl_error_arg,
         dvl_seed_arg,
         dr_reference_arg,
+        adaptive_gate_arg,
         slam_frame_arg,
         launch_include,
         ardusim_patch,

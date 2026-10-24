@@ -1,4 +1,4 @@
-# Nortek DVL A50 systematic error model for dvl_bridge.
+# Water Linked DVL A50 systematic error model for dvl_bridge.
 #
 # Stonefish's own <noise velocity="0.0015"/> is zero-mean white noise, which
 # integrates as a random walk (sqrt(time), wanders in sign). It is NOT what

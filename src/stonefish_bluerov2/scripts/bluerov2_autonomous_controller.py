@@ -988,18 +988,25 @@ class InspectV8(Node):
         if s == S.RISE and self.px is not None:
             # Quantify the handoff gap directly in the log, rather than
             # inferring it after the fact from a bag -- this is the
-            # number Task 16's root-cause finding turns on (see
-            # _do_rise() docstring): how far apart bearing_hold's target
-            # (facing the turbine) and yaw_hold_world's target (facing
-            # home) actually are at the exact moment of handoff.
+            # number the RISE root-cause finding turns on (see
+            # _do_rise() docstring): how far apart facing the turbine
+            # and facing home are at the exact moment of handoff.
+            #
+            # Since 2026-10-15 RISE no longer executes this swing; it
+            # holds turbine_psi and RETURN_HOME pays the gap at the
+            # surface, where losing the map costs nothing. The number
+            # is still logged because it is the independent variable
+            # the four-run collapse table is indexed by, and because a
+            # gap that shrinks to near zero would mean the geometry
+            # changed and the comparison no longer holds.
             turbine_psi = math.atan2(self.TY - self.py, self.TX - self.px)
             home_psi = math.atan2(self.home_y - self.py, self.home_x - self.px)
             gap_deg = math.degrees(wrap(home_psi - turbine_psi))
             self.get_logger().info(
                 f"RISE handoff: turbine_psi={math.degrees(turbine_psi):.0f}° "
                 f"home_psi={math.degrees(home_psi):.0f}° "
-                f"gap={gap_deg:.0f}° (this is the yaw swing RISE must "
-                f"execute, by geometry -- not a control-law artifact)")
+                f"gap={gap_deg:.0f}° (deferred to RETURN_HOME; RISE holds "
+                f"turbine_psi)")
         if s == S.TRANSIT:
             self.transit_phase = 'rise'
             self.orbit_beta_prev = None
@@ -1437,41 +1444,62 @@ class InspectV8(Node):
 
     # ────────────────────────────────────────────────────────────
     def _do_rise(self, now):
-        # Final ascent to the surface before returning home. Point
-        # toward the spawn waypoint while rising so RETURN_HOME starts
-        # already roughly aligned. Turbine-relative machinery (sonar,
-        # bearing_hold) is NOT used here — we're leaving the structure.
+        # Final ascent to the surface before returning home. Hold the
+        # turbine in view while rising and retreating radially; the turn
+        # toward home is RETURN_HOME's job. Turbine-relative machinery
+        # (sonar, bearing_hold) is still NOT used -- the heading target
+        # is computed from EKF position in the world frame, so this does
+        # not reintroduce the sonar-driven surface thrashing that
+        # _do_return()'s docstring describes.
         dep = self.depth_ctrl(self.D_RISE)
-        home_psi = math.atan2(self.home_y - self.py,
-                              self.home_x - self.px)
-        yaw_c = self.yaw_hold_world(home_psi, max_yaw=self.RISE_YAW_MAX)
+        turbine_psi = math.atan2(self.TY - self.py,
+                                 self.TX - self.px)
+        yaw_c = self.yaw_hold_world(turbine_psi, max_yaw=self.RISE_YAW_MAX)
 
-        # RISE is the handoff from facing the turbine (bearing_hold,
-        # held throughout DESCEND/TRANSIT) to facing home
-        # (yaw_hold_world) -- since face 0's standoff position sits
-        # roughly on the turbine-home line, those two targets are
-        # typically close to 180deg apart. Confirmed live 2026-09-06:
-        # logged gap=-159° at the handoff instant. That's a large,
-        # genuine turn (see YAW_CMD_LP docstring), not a control-law
-        # artifact, and two attempts to dampen it as if it were one
-        # (IMU corroboration, yaw-command slew limiting) made things
-        # worse and were reverted.
+        # WHY NOT home_psi (which this held until 2026-10-15).
         #
-        # First live test of the retreat-only fix (0.25 m/s, full yaw
-        # authority) confirmed the retreat itself works (trk_r climbed
-        # steadily through RISE) and the yaw-glitch guard no longer
-        # misfires on this turn -- but it did NOT prevent two genuine
-        # SLAM map-point crashes (t=8s and t=32s into RISE). The
-        # standing hypothesis was proximity to the lattice's six
-        # visually-identical anode bars during the turn; the same run
-        # showed world_b sweeping >150deg within the first 2s of RISE,
-        # suggesting the whip-pan itself -- not just standoff distance
-        # -- may be a separate trigger. RISE_YAW_MAX addresses that
-        # half; RISE_RETREAT_SPEED was also raised since 0.25 m/s only
-        # bought ~2.5m of separation before the first crash hit.
-        # STILL NOT VERIFIED -- mission still completed either way
-        # (RETURN_HOME doesn't depend on SLAM), so this only affects
-        # map/point-cloud quality, not mission success.
+        # Pointing at home during RISE was pre-alignment for the next
+        # phase, so RETURN_HOME would "start already roughly aligned".
+        # It bought nothing: _do_return() gates forward motion on
+        # head_err < 35deg precisely so that a large initial heading
+        # error turns in place and then goes. The turn happens either
+        # way. Pre-aligning only moved it earlier, into the one part of
+        # the mission where it is expensive.
+        #
+        # Expensive because face 0's standoff sits roughly on the
+        # turbine-home line, so the two targets are typically near
+        # 180deg apart -- logged gaps -34, -125, -137, -159 deg -- and
+        # the swing points the stereo pair off the structure and into
+        # open water, which has no features, at the exact moment
+        # tracking is asked to survive it. Four reference runs, Atlas
+        # size read from /bluerov2/map_points (eval/mapcollapse.py):
+        #
+        #   gap  -34 deg -> collapse at t=1285s, the final sample
+        #   gap -125 deg -> collapse during RISE
+        #   gap -137 deg -> collapse during RISE
+        #   gap -139 deg -> collapse at t=1100s == the handoff second
+        #
+        # The gap is not fixed by the mission: seed 0 gave -34 deg on
+        # 2026-10-14 and -139 deg on 2026-10-15, same scenario, same
+        # seed. It is wherever the final TRANSIT happens to end, which
+        # makes it a free variable rather than a cost of rising.
+        #
+        # Two earlier attempts treated the swing as a control-law
+        # artifact to be damped (IMU corroboration, yaw-command slew
+        # limiting); both made things worse and were reverted. They
+        # were aimed correctly at the symptom and wrongly at the cause:
+        # the swing was real, and the fix is not to execute it here.
+        # RISE_YAW_MAX and the raised RISE_RETREAT_SPEED were the other
+        # two mitigations; both are kept, and both are now belt and
+        # braces rather than the mechanism -- holding turbine_psi while
+        # moving radially outward demands almost no yaw, since radial
+        # motion does not change the bearing to the turbine.
+        #
+        # NOT YET VERIFIED. n=4, and the one surviving run is also the
+        # one with the smallest gap, so the collapse timestamps line up
+        # but causation is not established. The test is a seed-0 run
+        # against a50_slamref12_seed0_20261015_180532, which collapsed
+        # at the handoff: same seed, same fps, only this changed.
         retreat_psi = self.world_bearing()
         wx = self.RISE_RETREAT_SPEED * math.cos(retreat_psi)
         wy = self.RISE_RETREAT_SPEED * math.sin(retreat_psi)
