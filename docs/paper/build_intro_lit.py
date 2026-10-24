@@ -310,10 +310,11 @@ p("Feature-based visual SLAM reached practical maturity with ORB-SLAM "
 p("Direct methods such as LSD-SLAM [13] and DSO [14] dispense with features "
   "and optimise photometric error, which can be advantageous in low-texture "
   "scenes but is sensitive to illumination change and to the non-Lambertian "
-  "effects common underwater. Visual-inertial odometry systems such as "
-  "VINS-Mono [15] tightly couple an IMU and achieve strong short-horizon "
-  "accuracy, but without loop closure they remain odometry: the error is "
-  "bounded in rate, not in magnitude. Graph back-ends such as iSAM2 [16] "
+  "effects common underwater. Visual-inertial systems such as VINS-Mono "
+  "[15] tightly couple an IMU for strong short-horizon accuracy, and add loop "
+  "detection and pose-graph optimisation for global consistency; the odometry "
+  "core on its own, as with any odometry, has error bounded in rate and not in "
+  "magnitude. Graph back-ends such as iSAM2 [16] "
   "provide the incremental optimisation machinery these systems rest on.")
 
 h("2.4 Visual SLAM underwater", 2)
@@ -328,19 +329,20 @@ p("Transplanting these systems below the waterline is not routine, and the "
   "deep-learning-enhanced underwater SLAM. Image enhancement is commonly applied as a "
   "pre-processing stage, with colour-balance-and-fusion methods [19] and "
   "learned enhancement trained on benchmark datasets [20] both in use; "
-  "enhancement improves feature yield but does not create structure where the "
-  "scene has none.")
+  "in our reading, enhancement can improve the features available but cannot "
+  "create structure where the scene has none; this is an inference, not a claim "
+  "of [19] or [20].")
 p("Systems designed for the domain rather than adapted to it tend to add "
   "modalities. SVIn2 [21] fuses sonar, visual, inertial and depth measurements "
-  "in a tightly coupled estimator and is among the strongest demonstrated "
-  "underwater SLAM systems. Datasets such as AQUALOC [22] have made "
+  "in a tightly coupled estimator and is a representative multi-sensor "
+  "underwater SLAM system. Datasets such as AQUALOC [22] have made "
   "comparative evaluation on real subsea imagery possible. The present work "
   "deliberately uses an unmodified off-the-shelf stereo front end, because the "
   "claim concerns a property of the inspection target rather than of the SLAM "
   "implementation, and should transfer to any system with an appearance- or "
   "geometry-based place recogniser.")
 
-h("2.5 Place recognition and perceptual aliasing", 2)
+h("2.5 Place recognition, perceptual aliasing and false loop closures", 2)
 p("Loop closure rests on place recognition, and place recognition has a known "
   "failure mode. Appearance-based methods — FAB-MAP [23], the DBoW2 vocabulary "
   "used in the ORB-SLAM family [11] — represent an image by the visual words "
@@ -349,20 +351,37 @@ p("Loop closure rests on place recognition, and place recognition has a known "
   "al. [8] survey the field and treat perceptual aliasing as one of its "
   "central problems. Geometric verification is the standard defence: a "
   "candidate match must admit a consistent rigid transform, tested by RANSAC "
-  "or by joint-compatibility reasoning [9]. This defence fails exactly when "
-  "the two places are not merely similar in appearance but congruent in "
-  "geometry, because then the consistent transform exists.")
-p("Man-made infrastructure is replete with such congruence, and engineered "
-  "symmetry is its most systematic source. A four-fold symmetric jacket "
-  "presents four faces that are congruent by design; a correction that rotates "
-  "the estimate by ninety degrees about the structure's axis maps the "
-  "structure onto itself and is therefore geometrically self-consistent while "
-  "being completely wrong. To our knowledge the literature treats perceptual "
-  "aliasing as a property of environments encountered at runtime, to be "
-  "detected and rejected after the fact. We argue that for engineered "
-  "inspection targets it is instead a property of the asset that is known "
-  "before the mission, quantifiable from the drawing, and therefore available "
-  "as a prior.")
+  "[42] or by joint-compatibility reasoning [9]. This defence fails when the two "
+  "places are not merely similar in appearance but congruent in geometry, "
+  "because then the consistent transform exists.")
+p("Rejecting false closures after they are proposed is an established problem. "
+  "Switchable constraints [33] let the optimiser switch off closures that "
+  "disagree with the rest of the graph; max-mixtures [34] give each closure a "
+  "probability of being false; pairwise consistency [35] keeps the largest set "
+  "of mutually consistent closures. The closest work to a check against "
+  "dead reckoning is ROVER [41], which adds each candidate closure to the pose "
+  "graph in turn and rejects it if the resulting trajectory departs from the "
+  "front-end odometry trajectory by more than a threshold, in repetitive "
+  "environments such as buildings and forests. Its authors note that large "
+  "odometry drift can mislead the check. We find the same for our plain "
+  "checks (Section [N]), at a drift of metres. ROVER does not treat symmetry: "
+  "a closure that rotates the estimate onto a congruent copy of the "
+  "surroundings is outside what it examines.")
+p("Symmetry itself is handled in two neighbouring fields. In object SLAM, a "
+  "symmetric object has several poses that explain one view, and the methods "
+  "either keep all of them as hypotheses and resolve them over time [37], [38], "
+  "use the camera pose as a prior for symmetric keypoints [36], or discard the "
+  "ambiguous pose parameters and associate on the unambiguous ones [39]. In "
+  "localisation on symmetric maps, clustered particle filters keep every "
+  "equally probable pose alive until something separates them [40]. The idea "
+  "that symmetry makes a measurement ambiguous, and that the ambiguity should "
+  "be carried and not collapsed, is therefore not new. What we did not find, "
+  "in a web search that was not a systematic review, is either a loop-closure "
+  "test that uses a known rotational symmetry group of the inspected "
+  "structure to recognise a closure to the wrong face, or a measurement of how "
+  "often and how badly camera loop closures fail that way on a jacket-type "
+  "structure. This paper contributes the second, and an offline evaluation of "
+  "the first; it does not claim the idea of using symmetry.")
 
 h("2.6 Loosely coupled fusion and the frame-alignment problem", 2)
 p("Integrating a SLAM pose into a vehicle navigation filter is usually done "
@@ -394,11 +413,11 @@ p("Trajectory evaluation has well-established metrics — absolute trajectory "
   "violates. An evaluation can satisfy every convention in [28] and still "
   "report a number that means nothing, if the navigation solution was "
   "anchored to the reference it is being scored against.")
-p("The broader reproducibility discussion in robotics [29] has concentrated "
-  "on code and data availability. Pre-registration — fixing the predictions "
+p("Reproducibility and measurable experimentation in robotics have been "
+  "argued for [29]. Pre-registration — fixing the predictions "
   "and the conditions that would falsify them before the data exist — is "
-  "standard in parts of the experimental sciences [30] and rare in robotics, "
-  "where simulation makes it unusually cheap. We adopt it here, and report "
+  "established in parts of the experimental sciences [30] and, in the robotics "
+  "literature we have read, uncommon, though simulation makes it unusually cheap. We adopt it here, and report "
   "below both the predictions that held and those that did not.")
 
 h("2.8 The gap", 2)
@@ -454,6 +473,13 @@ refs = [
  "N. Sünderhauf and P. Protzel, “Switchable constraints for robust pose graph SLAM,” IROS, pp. 1879–1884, 2012.",
  "E. Olson and P. Agarwal, “Inference on networks of mixtures for robust robot mapping,” Int. J. Robotics Research, vol. 32, no. 7, 2013 (first presented at RSS 2012).",
  "J. G. Mangelson, D. Dominic, R. M. Eustice and R. Vasudevan, “Pairwise consistent measurement set maximization for robust multi-robot map merging,” ICRA, pp. 2916–2923, 2018.",
+ "N. Merrill, Y. Guo, X. Zuo, X. Huang, S. Leutenegger, X. Peng, L. Ren and G. Huang, “Symmetry and uncertainty-aware object SLAM for 6DoF object pose estimation,” CVPR, 2022 (arXiv 2205.01823).",
+ "J. Fu, Q. Huang, K. Doherty, Y. Wang and J. J. Leonard, “A multi-hypothesis approach to pose ambiguity in object-based SLAM,” IROS, 2021 (arXiv 2108.01225).",
+ "Z. Lu, Q. Huang, K. Doherty and J. Leonard, “Consensus-informed optimization over mixtures for ambiguity-aware object SLAM,” arXiv 2107.09265, 2021.",
+ "T. Lee, Y. Jang and H. J. Kim, “Object-based SLAM utilizing unambiguous pose parameters considering general symmetry types,” ICRA, 2023 (arXiv 2303.07872).",
+ "J. N. Sanchez, A. Milstein and E. Williamson, “Robust global localization using clustered particle filtering,” AAAI, 2002 (arXiv cs/0204044).",
+ "J. Yu, J. Yang, J. Jiao, A. Hu, Z. Liu, J. Wang, P. Tan and H. Zhang, “ROVER: robust loop closure verification with trajectory prior in repetitive environments,” arXiv 2508.13488, 2025.",
+ "M. A. Fischler and R. C. Bolles, “Random sample consensus: a paradigm for model fitting with applications to image analysis and automated cartography,” Commun. ACM, vol. 24, no. 6, pp. 381–395, 1981.",
 ]
 for i, r in enumerate(refs, 1):
     d.add_paragraph(f"[{i}] {r}", style="List Number" if False else None)
@@ -500,6 +526,12 @@ for s_ in (
     "association and is used correctly for joint-compatibility checking, but "
     "it is not a source for perceptual aliasing, so the aliasing sentence now "
     "cites [8] and [23].",
+    "Second pass, 2026-10-19: the symmetry-handling papers [36]-[40] and ROVER "
+    "[41] were looked up (authors, venue, what each does); ROVER's method "
+    "section was read, not the whole paper. Six sentences were corrected or "
+    "softened (see CITATION_CHECK.md, pass 2). The sentence citing [1], [2] "
+    "(inspection economics) still has no verified source and must not be "
+    "submitted as it stands.",
     "The premise that jackets are four-fold symmetric by engineering design "
     "is NOT supported. Sources found describe jackets with three, four or "
     "more legs and with boat landings and cable tubes that break symmetry; "
@@ -551,6 +583,6 @@ for s_ in (
 ):
     d.add_paragraph(s_, style="List Bullet")
 
-out = "DeepSight_Introduction_LitSurvey_v2.docx"
+out = "DeepSight_Introduction_LitSurvey_v3.docx"
 d.save(out)
 print("wrote", out)

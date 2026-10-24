@@ -203,3 +203,8 @@ informative only if the aliased first closures come from at least three
 distinct starting faces, and it is to be reported as the number of distinct
 (start face, end face) pairs rather than as a proportion landing on one
 bearing.
+
+
+## Outcome of the revisit checks on the 12 flights since 2026-10-20 (2026-10-23)
+
+`eval/closure_revisit.py`, NEAR = 5 m, LAG = 120 s, both unchanged. P2 HOLDS (7 of 7 face-aliased estimates within 1.0 m of a true earlier visit). P1 FAILS as registered: aliased 0.2 to 22.5 m, benign 0.5 to 1.1 m (5 of 5 within 5 m). The failures are the four face-aliased closures at the return to the starting face (true position 0.2 to 0.7 m from the visit at about 200 s). P1 assumed a wrong-face closure is always at a place the vehicle had not been; that is false at a true revisit, so P1 is not retracted but reported as failed for that class. The classifier was not changed.

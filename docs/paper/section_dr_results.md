@@ -126,6 +126,34 @@ of the structure laid across the first (Figure [P]d). That is the closure's 88
 degrees about the structure's axis, seen in the product the inspection exists to
 deliver.
 
+**SLAM's own map is not a substitute.** ORB-SLAM3 also builds a map, and it is
+published as a point cloud. We placed it in the world with a similarity fitted
+between the SLAM trajectory and the true trajectory before the closure, held
+it fixed, and measured every map point against the CAD in the same way as the
+sonar (Figure [S], Table [M]; the true trajectory is used for the placement only,
+so this scores the map, not what a vehicle could know). Before the closure the
+map follows the structure but is noisy: 17 to 21 % of its points lie within 25 cm
+of the CAD (median 0.7 to 0.9 m), against 99 % for the sonar reconstructed by dead
+reckoning. Part of that is placement: if the map is instead placed as well as it
+can be against the CAD (a best-case placement that uses the CAD), 46 to 66 % lie
+within 25 cm. After the closure the map is damaged in three of the five missions:
+the median distance is 2.5 to 4.1 m, and in the best case it stays at 2.1 to 4.2 m,
+so this is not a placement effect. Duplicate copies of the structure appear where
+there is no structure (Figure [S]c). In the other two missions the map is only
+modestly worse (14 to 15 % within 25 cm, from 17 %), and in one of them (2026-09-22
+23:09) the last map before ORB-SLAM3 reset it was taken 4 s after the closure, so
+that row says little.
+
+The same map in ten flights with no wrong-face closure is a control. Split at
+the flight's benign closure (or at 1000 s where it had none), the map is
+essentially unchanged: 16 to 24 % of its points within 25 cm before the split and
+16 to 24 % after, the largest change being 1.3 percentage points, with a median
+distance of 0.6 to 0.8 m throughout (Table [M], second part). The damage after a
+wrong-face closure is therefore not a property of any later part of a mission.
+In six of those flights the "after" snapshot is within 30 s of the split, so
+the comparison is weak there; in four (2026-10-14 14:08, 15:36 and 20:03, and
+2026-10-15 18:05) it is 45 to 170 s later and shows no change.
+
 **What this does and does not show.**
 - It shows that the pose errors above are not an abstract cost: they decide
   whether the model of the structure can be used.
@@ -139,21 +167,120 @@ deliver.
   The comparison between sources is not affected by the last.
 - Only two fused recordings postdate the fix.
 
-**Figure [P].** The structure reconstructed from the vehicle's own sonar in the
-mission of 2026-10-16 16:00, in plan view with north up, under four navigation
-sources. The same sonar returns appear in every panel; only the pose that places
-them changes. Colour is each point's distance to the CAD mesh, clipped at 1 m;
-grey shows the mesh. The second structure at the bottom is the other turbine in
-the scene. **(a)** True poses, 7 cm RMS over the whole run. **(b)** Dead reckoning, 10 cm. **(c)** The
-SLAM-fused filter, 1.8 m. **(d)** A vehicle that trusted SLAM through the wrong-face
-closure, 4.5 m, with a rotated copy of the structure.
+**Table [R].** Reconstruction RMS error against the CAD mesh, every recording.
+With true poses it is 7.3 to 7.5 cm in all of them.
 
-**Figure [R].** Reconstruction RMS against the CAD mesh, one marker per
-recording, bar the median. The fused-filter recordings before the fix are hollow
-because their fused tracks carry a mirrored alignment; the cross is the run in
-which SLAM was in the loop against its own filter. The last column is whole-run
-RMS for the counterfactual of a vehicle trusting SLAM through a wrong-face
-closure.
+*(a) Dead reckoning alone, three DVL units, one lap each* (the unit with no
+systematic DVL error gives 8 cm).
+
+| DVL unit | reconstruction RMS |
+|---|---|
+| seed 0 | 9 cm |
+| seed 1 | 16 cm |
+| seed 2 | 20 cm |
+
+*(b) Same flight, dead reckoning and the SLAM-fused filter.* The recording of
+2026-10-14 16:25 is omitted: it was flown with no systematic DVL error, giving
+8 cm for dead reckoning and 2.27 m fused.
+
+| recording | axis fix | dead reckoning | SLAM-fused |
+|---|---|---|---|
+| 2026-10-14 14:08 | before | 29 cm | 2.52 m |
+| 2026-10-14 15:36 | before | 10 cm | 2.17 m |
+| 2026-10-14 20:03 | before | 0.59 m | 2.73 m |
+| 2026-10-15 18:05 | before | 10 cm | 2.32 m |
+| 2026-10-15 20:41 | before | 10 cm | 2.43 m |
+| 2026-10-16 19:07 | after | 12 cm | 38 cm |
+| 2026-10-16 16:00 (wrong-face closure) | after | 10 cm | 1.80 m |
+
+*(c) Missions with a wrong-face closure, a vehicle that trusted SLAM through it
+(counterfactual).* The last column is the residual of the rotation calibration
+fitted before the closure; the 2026-09-21 row's pre-closure error comes from it.
+
+| mission | closure at | before closure | after closure | rotation calibration residual |
+|---|---|---|---|---|
+| 2026-09-05 20:11 | 776 s | 28 cm | 3.82 m | 1.7 deg |
+| 2026-09-21 23:23 | 642 s | 0.73 m | 5.17 m | 11.7 deg |
+| 2026-09-22 00:01 | 561 s | 26 cm | 7.51 m | 1.7 deg |
+| 2026-09-22 23:09 | 525 s | 0.54 m | 5.75 m | 4.0 deg |
+| 2026-10-16 16:00 | 573 s | 35 cm | 6.60 m | 2.6 deg |
+
+**Figure [P].** The structure reconstructed from the vehicle's own sonar in the
+mission of 2026-10-16 16:00, as a three-dimensional point cloud, under four
+navigation sources. The same sonar returns appear in every panel; only the pose
+that places them changes. Colour is each point's distance to the CAD mesh,
+clipped at 1 m; grey is the mesh. **(a)** True poses, 7 cm RMS over the whole
+run. **(b)** Dead reckoning, 10 cm. **(c)** The SLAM-fused filter, 1.8 m: the
+lattice is smeared. **(d)** A vehicle that trusted SLAM through the wrong-face
+closure, 4.5 m: a second, rotated copy of the lattice lies across the first.
+
+**Figure [E].** What Figure [P] means, for the same mission. **(a)** For each
+source, the share of the reconstruction that lies within a given distance of the
+CAD. With dead reckoning 98 % of the points are within 25 cm after the closure,
+against 6 % for the SLAM-fused filter and 1 % for the vehicle that trusted SLAM.
+**(b)** The same error through the mission, as RMS in 10 s windows. True poses
+and dead reckoning stay between 7 and 12 cm throughout. The SLAM-fused filter
+leaves them when the first SLAM pose reaches it (220 s) and runs at 0.2 to 0.5 m
+before the closure; the vehicle that trusts SLAM runs at 0.1 to 0.6 m, its own
+alignment and rotation being calibrated and not exact. At the wrong-face closure
+(573 s) both SLAM-based curves jump by more than an order of magnitude, to several
+metres, while dead reckoning does not move. Line styles are the same in both
+panels.
+
+**Figure [R].** The same measure across recordings. Each dot is one recording;
+the black line is the median of its group. Groups are named on the axis, and
+every dot has the same shape because only the group matters. The two lightest
+groups are the fused filter before the axis conversion was fixed (their fused
+tracks carry a mirrored alignment) and the run in which SLAM was in the loop
+against its own filter. The last group is the whole-run RMS of the counterfactual
+vehicle that trusted SLAM through a wrong-face closure. The numbers behind every
+dot are in Table [R].
+
+**Figure [S].** The structure as the vehicle's sonar and as ORB-SLAM3's own map
+show it, in the mission of 2026-10-16 16:00. Colour is each point's distance to
+the CAD mesh, clipped at 1 m; grey is the mesh; each panel shows 22 000 points
+drawn at random. **(a)** The sonar placed by dead reckoning: 99 % of its points
+are within 25 cm. **(b)** ORB-SLAM3's map, the last snapshot before the closure,
+placed with a similarity fitted to the true trajectory before the closure: 21 %
+within 25 cm. **(c)** The same map, the largest snapshot after the wrong-face
+closure, with the placement held: 7 % within 25 cm, and copies of the structure
+where none exists. Only 60 % of that map's points fall inside the plotted volume.
+
+**Table [M].** ORB-SLAM3's map against the CAD, the five wrong-face missions.
+"Before" is the last snapshot before the closure, "after" the largest snapshot
+after it. The first pair of columns uses the trajectory-based placement; the second
+pair places the map as well as possible against the CAD.
+
+| mission | within 25 cm, before | within 25 cm, after | median distance, after | best placement: within 25 cm, after | best placement: median, after |
+|---|---|---|---|---|---|
+| 2026-09-05 20:11 | 18.5 % | 5.2 % | 2.50 m | 8.2 % | 2.13 m |
+| 2026-09-21 23:23 | 20.2 % | 8.2 % | 3.04 m | 12.9 % | 2.84 m |
+| 2026-09-22 00:01 | 16.6 % | 14.5 % | 1.04 m | 36.3 % | 0.47 m |
+| 2026-09-22 23:09 (snapshot 4 s after closure) | 17.5 % | 13.7 % | 1.17 m | 34.4 % | 0.51 m |
+| 2026-10-16 16:00 | 20.9 % | 7.3 % | 4.13 m | 12.5 % | 4.18 m |
+
+*Second part: the control, ten flights with no wrong-face closure.* Snapshots
+before and after the split time; the "after" row repeats the "before" row to
+within 1.3 points.
+
+| flight | split at | within 25 cm, before | within 25 cm, after | median, before | median, after | best placement: within 25 cm, before |
+|---|---|---|---|---|---|---|
+| 2026-10-14 14:08 | 1000 s | 22.1 % | 21.9 % | 0.70 m | 0.70 m | 56.7 % |
+| 2026-10-14 15:36 | 1056 s | 23.1 % | 22.2 % | 0.65 m | 0.73 m | 62.4 % |
+| 2026-10-14 16:25 (no DVL error) | 1034 s | 23.4 % | 23.4 % | 0.66 m | 0.67 m | 55.8 % |
+| 2026-10-14 20:03 | 1000 s | 20.4 % | 19.8 % | 0.75 m | 0.77 m | 33.3 % |
+| 2026-10-15 18:05 | 1000 s | 22.6 % | 22.9 % | 0.69 m | 0.68 m | 55.1 % |
+| 2026-10-15 20:41 | 1000 s | 24.2 % | 23.8 % | 0.61 m | 0.62 m | 63.0 % |
+| 2026-10-16 19:07 | 1015 s | 22.9 % | 22.2 % | 0.62 m | 0.64 m | 66.0 % |
+| 2026-09-05 14:16 | 1028 s | 17.0 % | 17.5 % | 0.80 m | 0.79 m | 57.9 % |
+| 2026-09-05 17:38 | 1014 s | 18.5 % | 18.5 % | 0.71 m | 0.70 m | 68.1 % |
+| 2026-09-12 13:27 | 1027 s | 17.7 % | 16.4 % | 0.78 m | 0.83 m | 51.8 % |
+
+The trajectory-based placement finds a scale of 0.89 to 0.96 in every mission,
+against 0.97 to 1.01 for the best-case placement (checked for the five
+wrong-face missions; the ten control flights show the same pre-closure gap: scale 0.89 to 0.98, best-case within 25 cm 33 to 68 %); that gap is why the
+trajectory-based placement scores worse than the best-case one, and its cause is
+not established (it may be the SLAM trajectory's own drift before the closure).
 
 ---
 

@@ -1,0 +1,13 @@
+id,group,arm,seed,scenario,rise,bag,note
+slamref_s0,remeasure,slamref,0,bluerov2_turbine,old,bags/a50_slamref_seed0_20261020_164933,first flight of the Sim(2) bridge
+slamref_s1,remeasure,slamref,1,bluerov2_turbine,old,bags/a50_slamref_seed1_20261020_172618,
+slamref_s2,remeasure,slamref,2,bluerov2_turbine,old,bags/a50_slamref_seed2_20261020_200356,
+L4_s0,symL4,symL4,0,bluerov2_turbine_sym_l4,old,bags/a50_symL4_seed0_20261021_010852,control flawed: same hardware on faces 0 and 1
+L4_s1,symL4,symL4,1,bluerov2_turbine_sym_l4,old,bags/a50_symL4_seed1_20261021_172653,control flawed: same hardware on faces 0 and 1
+L0_s0,stage1,ctlL0,0,bluerov2_turbine,fixed,bags/a50_risefix_seed0_20261021_205753,flown before the L0/L5 pre-registration (disclosed)
+L5_s0,stage1,symL5,0,bluerov2_turbine_sym_l5,fixed,bags/a50_symL5_seed0_20261021_215607,
+L0_s1,stage1,ctlL0,1,bluerov2_turbine,fixed,bags/a50_ctlL0_seed1_20261021_234743,
+L5_s1,stage1,symL5,1,bluerov2_turbine_sym_l5,fixed,bags/a50_symL5_seed1_20261022_124631,
+L0_s2,stage1,ctlL0,2,bluerov2_turbine,fixed,bags/a50_ctlL0_seed2_20261022_175232,
+L5_s2,stage1,symL5,2,bluerov2_turbine_sym_l5,fixed,bags/a50_symL5_seed2_20261022_190833,
+OB_s1,extra,oldbridge,1,bluerov2_turbine,fixed,bags/a50_oldbridge_seed1_20261022_200605,stock with the pre-07c7be5 bridge (rotation-only); single discriminating run

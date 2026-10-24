@@ -117,4 +117,4 @@ bash record_run.sh <arm> <seed>
   measured camera rate, not the rate declared in the .scn. ORB-SLAM3
   treats it as a frame count.
 - stonefish_ros2 v1.3 required (matching Stonefish library v1.3)
-- BlueROV2 uses Vectored-6DOF frame in QGroundControl for 6 thruster configuration
+- The simulated vehicle is the BlueROV2 Heavy (8 thrusters: 4 vectored horizontal + 4 vertical; see the `.scn`), which is fully 6-DOF controllable. The Vectored-6DOF frame in QGroundControl is an ArduSub setting and is not used here.
