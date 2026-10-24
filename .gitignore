@@ -35,3 +35,5 @@ eval/figures/.*_cache.json
 # are large and derived, the logs under eval/task_a_out/ are the record.
 plots/task_a_topics_*.npz
 eval/task_a_out/*.npz
+probe_l4/
+eval/figures/*.npz
