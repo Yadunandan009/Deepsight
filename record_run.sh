@@ -19,6 +19,12 @@ SEED="${2:?usage: record_run.sh <arm> <seed>}"
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BAG_ROOT="/media/yadunandan/more space/bags"
 BAG="${BAG_ROOT}/a50_${ARM}_seed${SEED}_$(date +%Y%m%d_%H%M%S)"
+# If the external drive is not mounted, mkdir -p would quietly create the path on
+# the root disk (about 5 GB free) and the bag would fill it.
+if ! mountpoint -q "/media/yadunandan/more space"; then
+  echo "REFUSING TO RECORD: the external drive is not mounted at /media/yadunandan/more space" >&2
+  exit 1
+fi
 mkdir -p "$BAG_ROOT"
 
 # /bluerov2/dvl_twist is the bridge OUTPUT, i.e. the corrupted velocity the
@@ -111,6 +117,23 @@ if [ -n "$BAD" ]; then
   echo "Fix the arguments, or re-run with FORCE=1 to record anyway." >&2
   [ "${FORCE:-0}" = "1" ] || exit 1
   echo "FORCE=1 set -- recording under a name that does not match the system." >&2
+fi
+
+# Optional camera frames:  IMAGES=1 bash record_run.sh imgL0 1
+# The left camera as rendered (image_color) and as ORB-SLAM3 receives it
+# (image_enhanced), each throttled to IMAGE_HZ (default 1 Hz): about 2.4 GB per
+# mission at 1 Hz, against roughly 70 GB per topic at the full 30 Hz.
+THROTTLE_PIDS=()
+if [ "${IMAGES:-0}" = "1" ]; then
+  HZ="${IMAGE_HZ:-1.0}"
+  for t in image_color image_enhanced; do
+    ros2 run topic_tools throttle messages "/bluerov2/left/${t}" "$HZ" "/bluerov2/left/${t}_rec" >/dev/null 2>&1 &
+    THROTTLE_PIDS+=($!)
+    TOPICS+=("/bluerov2/left/${t}_rec")
+  done
+  trap 'kill "${THROTTLE_PIDS[@]}" 2>/dev/null || true' EXIT
+  sleep 2
+  echo "  camera frames: left image_color and image_enhanced at ${HZ} Hz"
 fi
 
 echo "arm=${ARM} seed=${SEED}  (live seed='${LIVE_SEED:-?}' scale_sigma='${LIVE_SIGMA:-?}' slam_pubs='${SLAM_PUBS:-?}')"
