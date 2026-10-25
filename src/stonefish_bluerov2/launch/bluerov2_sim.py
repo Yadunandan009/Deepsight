@@ -66,6 +66,19 @@ def generate_launch_description():
     )
     adaptive_gate = LaunchConfiguration('adaptive_gate')
 
+    # 2a1d. What the SLAM bridge does after a >5 m jump inside the same map
+    # (a false loop closure). 'quarantine' stops SLAM for the rest of the
+    # mission; 'relock' re-fits on the bent map, which every run before
+    # 2026-10-25 did. See the jump_policy comment in slam_pose_bridge.py.
+    jump_policy_arg = DeclareLaunchArgument(
+        'jump_policy',
+        default_value='quarantine',
+        description="SLAM bridge after an in-map jump: 'quarantine' (stop "
+                    "using SLAM for the rest of the mission) or 'relock' (reproduces "
+                    "pre-2026-10-25 runs)."
+    )
+    jump_policy = LaunchConfiguration('jump_policy')
+
     # 2a2. Rendering quality -- was hardcoded to 'high', which drives
     # sustained GPU load/heat hard enough to cause thermal throttling on
     # this laptop (observed: 86C, and camera framerate visibly decaying
@@ -162,7 +175,9 @@ def generate_launch_description():
                      'slam_frame': ParameterValue(slam_frame,
                                                   value_type=str),
                      'adaptive_gate': ParameterValue(adaptive_gate,
-                                                     value_type=bool)}],
+                                                     value_type=bool),
+                     'jump_policy': ParameterValue(jump_policy,
+                                                   value_type=str)}],
     )
 
     # 5b. DVL Bridge
@@ -355,6 +370,7 @@ def generate_launch_description():
         dvl_seed_arg,
         dr_reference_arg,
         adaptive_gate_arg,
+        jump_policy_arg,
         slam_frame_arg,
         launch_include,
         ardusim_patch,

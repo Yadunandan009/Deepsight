@@ -202,6 +202,53 @@ class SlamPoseBridge(Node):
         self.last_slam_y = None
         self.JUMP_THRESHOLD = 5.0  # m between consecutive raw SLAM frames
 
+        # Quarantine after a jump inside the SAME map (no map-point crash
+        # around it). That is a loop closure or merge re-posing the map, and
+        # at this size it is a false one: ORB-SLAM3 then optimises the whole
+        # map to agree with the false loop, so the map is bent and no single
+        # similarity fits it any more. Re-locking anyway is what the old code
+        # did. MEASURED 2026-10-25 by replaying all 39 bags that hold the raw
+        # SLAM pose through this node (eval/replay_bridge.py): 15 have an
+        # in-map jump; after 9 of them the old code re-locked, and all 9
+        # re-locks were bad, median error 0.85 to 4.07 m against ground
+        # truth; the other 6 jumps came too close to the end of the mission
+        # to re-lock, which is all "the bridge goes silent" ever was. In the
+        # 24 bags without one, both policies publish identical poses. The
+        # windows that straddle such a jump also
+        # drift slowly through the scale bound (0.29, 0.51 ... 0.751), so
+        # SCALE_MIN does not catch them.
+        #
+        # Quarantined, the bridge neither collects nor publishes for the
+        # rest of the mission, and the filter runs on DVL dead reckoning. It
+        # is NOT lifted by a later map crash. That was tried first and
+        # replayed: in both bags where a crash followed a quarantine, what
+        # came next was no clean map -- in a50_risefix_seed0 a new map that
+        # no 75 s window fits rigidly (scale 0.03 to 1.35, residual 0.6 to
+        # 4 m against truth), in DeepSight_v5_20260810 ORB-SLAM3 dropping
+        # the bent map for 10 s and switching back to it -- and the re-lock
+        # on it erred by a median 3.8 m and 2.9 m. No bag has a good map
+        # after a quarantine.
+        #
+        # A jump on an immature map (below MAP_CRASH_FLOOR points, where a
+        # crash cannot be detected) or within CRASH_JUMP_WINDOW of a crash
+        # is taken to be a new map and handled as before, by a re-lock.
+        # 'quarantine'  as above (default)
+        # 'relock'      reset and re-lock on the same map -- every run before
+        #               2026-10-25, kept so it can be re-measured
+        self.declare_parameter('jump_policy', 'quarantine')
+        self.jump_policy = str(
+            self.get_parameter('jump_policy').value).strip().lower()
+        if self.jump_policy not in ('quarantine', 'relock'):
+            raise ValueError(
+                f"jump_policy must be 'quarantine' or 'relock', "
+                f"got {self.jump_policy!r}")
+        self.quarantined = False
+        self.last_crash_t = None
+        self.CRASH_JUMP_WINDOW = 10.0  # s -- map_points arrives about every
+                                         # 5 s, so the crash that marks a new
+                                         # map can land either side of the
+                                         # jump in the pose stream
+
         # Map density gate — minimum map points before SLAM is trusted at
         # all, for both collecting correspondences and publishing corrections
         self.map_pts = 0
@@ -394,6 +441,7 @@ class SlamPoseBridge(Node):
                 f'-- likely SLAM re-init/fragmentation, invalidating alignment')
             self._reset_alignment()
             self.map_stable_since = None
+            self.last_crash_t = time.time()
         elif self.map_stable_since is None:
             self.map_stable_since = time.time()
         self.map_pts_prev = pts
@@ -564,8 +612,23 @@ class SlamPoseBridge(Node):
                 self.get_logger().warn(
                     f'SLAM jump detected {jump:.2f}m — resetting alignment')
                 self._reset_alignment()
+                new_map = (self.map_pts_prev < self.MAP_CRASH_FLOOR
+                           or (self.last_crash_t is not None
+                               and time.time() - self.last_crash_t
+                               <= self.CRASH_JUMP_WINDOW))
+                if self.jump_policy == 'quarantine' and not new_map \
+                        and not self.quarantined:
+                    self.quarantined = True
+                    self.get_logger().warn(
+                        f'SLAM QUARANTINED: {jump:.2f}m jump inside the same '
+                        f'map (map_pts={self.map_pts}, no crash) -- the map '
+                        f'has been bent by a false loop closure; no SLAM '
+                        f'poses for the rest of the mission')
         self.last_slam_x = sx
         self.last_slam_y = sy
+
+        if self.quarantined:
+            return
 
         if self.ekf_x is None:
             return
