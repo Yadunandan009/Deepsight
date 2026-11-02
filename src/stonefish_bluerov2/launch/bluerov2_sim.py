@@ -65,6 +65,20 @@ def generate_launch_description():
                     'dr_reference:=true.'
     )
     adaptive_gate = LaunchConfiguration('adaptive_gate')
+    # Its settings, defaults equal to slam_pose_bridge.py's own, so leaving them
+    # out changes nothing. See stonefish_bluerov2/consistency_gate.py.
+    gate_settings = {
+        'gate_floor': ('1.0', 'Gate width in m while on probation, and its floor.', float),
+        'gate_k_drift': ('0.0', 'Growth of the gate width per m of path travelled.', float),
+        'gate_probation_poses': ('25', 'Consecutive poses inside the floor before a new '
+                                 'alignment may publish; 0 turns probation off.', int),
+        'gate_probation_spread': ('8.0', 'Horizontal spread in m the fit window needs '
+                                  'before a new alignment may publish.', float),
+    }
+    gate_args = [DeclareLaunchArgument(n, default_value=d, description=t)
+                 for n, (d, t, _) in gate_settings.items()]
+    gate_params = {n: ParameterValue(LaunchConfiguration(n), value_type=ty)
+                   for n, (_, _, ty) in gate_settings.items()}
 
     # 2a1d. What the SLAM bridge does after a >5 m jump inside the same map
     # (a false loop closure). 'quarantine' stops SLAM for the rest of the
@@ -177,7 +191,8 @@ def generate_launch_description():
                      'adaptive_gate': ParameterValue(adaptive_gate,
                                                      value_type=bool),
                      'jump_policy': ParameterValue(jump_policy,
-                                                   value_type=str)}],
+                                                   value_type=str),
+                     **gate_params}],
     )
 
     # 5b. DVL Bridge
@@ -371,6 +386,7 @@ def generate_launch_description():
         dr_reference_arg,
         adaptive_gate_arg,
         jump_policy_arg,
+        *gate_args,
         slam_frame_arg,
         launch_include,
         ardusim_patch,

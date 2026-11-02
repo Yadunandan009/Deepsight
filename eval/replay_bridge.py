@@ -90,9 +90,11 @@ def load(bag):
     return ref, ev, np.array(truth), np.array(rec)
 
 
-def replay(ev, frame, policy):
+def replay(ev, frame, policy, params=None):
+    """params: further bridge parameters, e.g. {"adaptive_gate": "true", "gate_floor": 1.0}."""
+    extra = [a for k, v in (params or {}).items() for a in ("-p", f"{k}:={v}")]
     rclpy.init(args=["--ros-args", "-p", f"slam_frame:={frame}", "-p", f"jump_policy:={policy}",
-                     "--log-level", "slam_pose_bridge:=error"])
+                     *extra, "--log-level", "slam_pose_bridge:=error"])
     node = spb.SlamPoseBridge()
     out = []
     node.pub = SimpleNamespace(publish=lambda m: out.append(
