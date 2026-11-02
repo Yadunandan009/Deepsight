@@ -71,13 +71,6 @@
 		<look name="turbine_main" gray="1.0" roughness="0.4" metalness="0.5" texture="turbines/textures/Turbine_Main_Diffuse.png"/>
 	</looks>
 
-	 <include file="$(find stonefish_bluerov2)/scenarios/turbine1.scn">
-		<arg name="model_name" value="turbine1"/>
-		<arg name="position" value="-20.0 -0.0 20.0"/>
-		<arg name="orientation" value="0.0 0.0 0.0"/>
-		<arg name="scale" value="1.0"/>
-	</include> 
-	
 	<include file="$(find stonefish_bluerov2)/scenarios/turbine2.scn">
 		<arg name="model_name" value="turbine2"/>
 		<arg name="position" value="20.0 0.0 25.0"/>
