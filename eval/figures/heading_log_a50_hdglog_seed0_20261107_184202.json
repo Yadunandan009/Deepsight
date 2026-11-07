@@ -1,0 +1,51 @@
+{
+ "bag": "a50_hdglog_seed0_20261107_184202",
+ "decisions": [
+  {
+   "kind": "loop",
+   "t_a": 1794057651.124,
+   "t_m": 1794057414.202,
+   "kf_a": 1069,
+   "kf_m": 672,
+   "vis": 0.7,
+   "imu": -89.8,
+   "resid": 90.5,
+   "decision": "would_veto"
+  },
+  {
+   "kind": "loop",
+   "t_a": 1794058140.867,
+   "t_m": 1794057278.416,
+   "kf_a": 1982,
+   "kf_m": 462,
+   "vis": 2.3,
+   "imu": -357.9,
+   "resid": 0.2,
+   "decision": "accept"
+  }
+ ],
+ "classes": [
+  {
+   "t": 522.2,
+   "cls": "face-aliased",
+   "decision": [
+    [
+     "would_veto",
+     90.5,
+     236.9
+    ]
+   ]
+  },
+  {
+   "t": 1011.7,
+   "cls": "other-large",
+   "decision": [
+    [
+     "accept",
+     0.2,
+     862.5
+    ]
+   ]
+  }
+ ]
+}

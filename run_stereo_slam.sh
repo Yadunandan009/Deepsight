@@ -6,6 +6,10 @@
 #   bash run_stereo_slam.sh                      reference, b = 0.145 m
 #   bash run_stereo_slam.sh bluerov2_stereo_b30.yaml   wide, b = 0.30 m
 CFG="${1:-bluerov2_stereo.yaml}"
+# bluerov2-heading adds the heading-consistency check (Heading.* in the
+# stereo yaml; build with ~/ORB-SLAM3-ROS2-Docker/Dockerfile.heading).
+# SLAM_IMAGE=orb-slam3-humble:bluerov2 runs the image of every earlier flight.
+IMAGE="${SLAM_IMAGE:-orb-slam3-humble:bluerov2-heading}"
 SLAM="$HOME/ros2_ws/slam_params"
 if [ ! -f "$SLAM/$CFG" ]; then
     echo "no such stereo config: $SLAM/$CFG" >&2
@@ -19,7 +23,7 @@ echo "   b=0.3   -> scenario:=bluerov2_turbine_b30"
 echo "   eval/check_stereo_baseline.py verifies the pairing."
 PKG="/root/colcon_ws/src/orb_slam3_ros2_wrapper/params"
 INST="/root/colcon_ws/install/orb_slam3_ros2_wrapper/share/orb_slam3_ros2_wrapper/params"
-echo "=== Stereo ORB-SLAM3 for BlueROV2 ==="
+echo "=== Stereo ORB-SLAM3 for BlueROV2 ===   image: $IMAGE"
 xhost +local:docker 2>/dev/null
 docker rm -f orb_slam3_running 2>/dev/null
 docker run -d \
@@ -38,7 +42,7 @@ docker run -d \
     -v "$SLAM/bluerov2-stereo-ros-params.yaml:$PKG/ros_params/euroc-stereo-ros-params.yaml" \
     -v ~/ros2_ws/slam_atlas:/tmp/host \
     -v "$SLAM/bluerov2-stereo-ros-params.yaml:$INST/ros_params/euroc-stereo-ros-params.yaml" \
-    orb-slam3-humble:bluerov2 bash -c "\
+    "$IMAGE" bash -c "\
         source /opt/ros/humble/setup.bash && \
         source /root/colcon_ws/install/setup.bash && \
         ros2 run orb_slam3_ros2_wrapper stereo \

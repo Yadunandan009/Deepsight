@@ -113,3 +113,19 @@ Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500.0
 System.SaveAtlasToFile: "/tmp/host/deepsight_map"
 #System.LoadAtlasFromFile: "/tmp/host/deepsight_map"
+
+#--------------------------------------------------------------------------------------------
+# Heading-consistency check on loop closures, map merges and relocalizations
+# (ORB_SLAM3 HeadingPrior.h). The heading comes from heading_imu_topic in
+# bluerov2-stereo-ros-params.yaml. Every decision is printed as a [HEADING]
+# line in the container console.
+#   Mode 0  off (stock ORB-SLAM3)
+#   Mode 1  log only: compute and print, never refuse a match
+#   Mode 2  refuse a match whose turn disagrees with the IMU by > Threshold
+# Threshold is half the jacket's four-fold symmetry angle.
+# DownInCamera: +y, a level forward-looking camera (bluerov2.scn rpy 1.571 0 1.571).
+#--------------------------------------------------------------------------------------------
+Heading.Mode: 2
+Heading.Threshold: 45.0
+Heading.MaxGap: 0.5
+Heading.DownInCamera: [0.0, 1.0, 0.0]

@@ -4,3 +4,5 @@
     do_loop_closing: true
     publish_map_points: true
     map_points_publish_frequency: 5000
+    # heading sensor for the place-recognition heading check (Heading.* in bluerov2_stereo.yaml)
+    heading_imu_topic: "/bluerov2/imu"
