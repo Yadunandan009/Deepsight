@@ -36,6 +36,7 @@ TOPICS=(
   /bluerov2/dvl_twist
   /bluerov2/depth_pose
   /bluerov2/imu
+  /bluerov2/altitude            # DVL altitude: shows where bottom lock was lost
   /bluerov2/multibeam_raw
 )
 # The SLAM-free reference filter, when dr_reference:=true put one up. Without
@@ -80,6 +81,27 @@ if [ -z "$BAD" ]; then
     BAD="dvl_bridge has scale_sigma=0, so the a50 error model is OFF. Relaunch with dvl_error:=a50"
   fi
 fi
+# Heading-check arms (PREREG_veto_symmetry_20261116.md). Each arm name claims
+# a scene and a Heading.Mode; both are read from the running system: the .scn
+# on the simulator's command line, and the "[HEADING] config mode=" line the
+# SLAM container printed at start-up (newest console log).
+case "$ARM" in
+  stkL0)  WANT_SCN=bluerov2_turbine.scn;        WANT_MODE=1 ;;
+  vetoL0) WANT_SCN=bluerov2_turbine.scn;        WANT_MODE=2 ;;
+  stkL5)  WANT_SCN=bluerov2_turbine_sym_l5.scn; WANT_MODE=1 ;;
+  *)      WANT_SCN=;                            WANT_MODE= ;;
+esac
+if [ -z "$BAD" ] && [ -n "$WANT_MODE" ]; then
+  LIVE_SCN="$(ps -eo args | awk '/stonefish_simulator/ {for (i=1;i<=NF;i++) if ($i ~ /\.scn$/) {print $i; exit}}')"
+  SLAM_LOG="$(ls -t "$WS"/slam_atlas/orb_slam3_console_*.log 2>/dev/null | head -1)"
+  LIVE_MODE="$(grep -m1 -oP '\[HEADING\] config mode=\K[0-9]+' "$SLAM_LOG" 2>/dev/null || true)"
+  if [ "$(basename "${LIVE_SCN:-none}")" != "$WANT_SCN" ]; then
+    BAD="arm=${ARM} needs scenario ${WANT_SCN}, the simulator is running $(basename "${LIVE_SCN:-nothing}")"
+  elif [ "$LIVE_MODE" != "$WANT_MODE" ]; then
+    BAD="arm=${ARM} needs Heading.Mode ${WANT_MODE}, ${SLAM_LOG##*/} says mode=${LIVE_MODE:-none} (run_stereo_slam.sh with the arm's yaml)"
+  fi
+fi
+
 # The stereo baseline is the wide-baseline experiment's ONLY variable and
 # nothing else here would notice it being wrong. Both sides are read from
 # the RUNNING system by eval/check_stereo_baseline.py --live:
@@ -134,6 +156,20 @@ if [ "${IMAGES:-0}" = "1" ]; then
   trap 'kill "${THROTTLE_PIDS[@]}" 2>/dev/null || true' EXIT
   sleep 2
   echo "  camera frames: left image_color and image_enhanced at ${HZ} Hz"
+fi
+
+# Optional replayable stereo:  STEREO=1 bash record_run.sh <arm> <seed>
+# Both eyes at the full delivered rate, as the grayscale ORB-SLAM3 computes
+# from them (stereo_gray_rec.py), so the flight can be replayed into any SLAM
+# configuration -- stock, heading-checked, stereo-inertial -- on identical
+# input. About 19 GB per mission (measured 2026-11-15). /bluerov2/imu is already in the bag.
+if [ "${STEREO:-0}" = "1" ]; then
+  /usr/bin/python3 "$WS/src/stonefish_bluerov2/scripts/stereo_gray_rec.py" >/dev/null 2>&1 &
+  THROTTLE_PIDS+=($!)
+  TOPICS+=(/bluerov2/left/image_gray_rec /bluerov2/right/image_gray_rec)
+  trap 'kill "${THROTTLE_PIDS[@]}" 2>/dev/null || true' EXIT
+  sleep 2
+  echo "  stereo: both eyes, grayscale, full rate (~19 GB per mission)"
 fi
 
 echo "arm=${ARM} seed=${SEED}  (live seed='${LIVE_SEED:-?}' scale_sigma='${LIVE_SIGMA:-?}' slam_pubs='${SLAM_PUBS:-?}')"
