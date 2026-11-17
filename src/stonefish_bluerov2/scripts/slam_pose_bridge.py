@@ -78,13 +78,15 @@ import time
 # horizontal-rotation model cannot represent the difference -- see
 # stonefish_bluerov2/frames.py and docs/SLAM_FRAME_ENU_NED.md.
 try:
-    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace, FRAME_NOTE
+    from stonefish_bluerov2.frames import (enu_to_ned_pose_inplace, FRAME_NOTE,
+                                           vi_to_ned_pose_inplace, VI_FRAME_NOTE)
 except ImportError:                      # running straight from scripts/
     import os as _os
     import sys as _sys
     _sys.path.insert(0, _os.path.join(
         _os.path.dirname(_os.path.abspath(__file__)), '..'))
-    from stonefish_bluerov2.frames import enu_to_ned_pose_inplace, FRAME_NOTE
+    from stonefish_bluerov2.frames import (enu_to_ned_pose_inplace, FRAME_NOTE,
+                                           vi_to_ned_pose_inplace, VI_FRAME_NOTE)
 
 
 def wrap(a):
@@ -243,6 +245,16 @@ class SlamPoseBridge(Node):
                 f"jump_policy must be 'quarantine' or 'relock', "
                 f"got {self.jump_policy!r}")
         self.quarantined = False
+        # Quarantine is armed only once this map has been aligned. Before
+        # that no SLAM pose has reached the filter, so a jump cannot have
+        # pulled it anywhere, and there is no fitted map for a false loop to
+        # have bent. MEASURED 2026-11-15 (a50_vishake_seed0_20261115_021022):
+        # stereo-inertial ORB-SLAM3 resets its first map ("Not enough motion
+        # for initializing") while the vehicle sits at the surface, the pose
+        # jumped 6.2 m with 8910 map points and no detected crash, and the
+        # bridge quarantined SLAM for the whole 29-minute mission before it
+        # had ever locked.
+        self.aligned_on_map = False
         self.last_crash_t = None
         self.CRASH_JUMP_WINDOW = 10.0  # s -- map_points arrives about every
                                          # 5 s, so the crash that marks a new
@@ -355,6 +367,9 @@ class SlamPoseBridge(Node):
         # 'ned'  take it as-is -- reproduces every run before 2026-10-16,
         #        kept so the pre-fix behaviour can be re-measured rather
         #        than remembered.
+        # 'vi'   stereo-inertial ORB-SLAM3 (run_stereo_slam.sh with
+        #        SLAM_MODE=stereo_imu): measured to publish z down already;
+        #        see frames.vi_to_ned_xyz.
         self.declare_parameter('slam_frame', 'enu')
         self.declare_parameter('reference_odom', '/bluerov2/odometry/filtered')
         self.declare_parameter('output_topic', '/bluerov2/robot_pose_slam_ekf')
@@ -395,10 +410,11 @@ class SlamPoseBridge(Node):
         output_topic = self.get_parameter('output_topic').value
         slam_frame = str(
             self.get_parameter('slam_frame').value).strip().lower()
-        if slam_frame not in ('enu', 'ned'):
+        if slam_frame not in ('enu', 'ned', 'vi'):
             raise ValueError(
-                f"slam_frame must be 'enu' or 'ned', got {slam_frame!r}")
-        self.slam_is_enu = (slam_frame == 'enu')
+                f"slam_frame must be 'enu', 'ned' or 'vi', got {slam_frame!r}")
+        self.to_ned = {'enu': enu_to_ned_pose_inplace,
+                       'vi': vi_to_ned_pose_inplace}.get(slam_frame)
 
         self.pub = self.create_publisher(
             PoseWithCovarianceStamped,
@@ -419,7 +435,8 @@ class SlamPoseBridge(Node):
             f'SLAM pose bridge started (reference_odom={reference_odom}, '
             f'output={output_topic}, slam_frame={slam_frame})')
         self.get_logger().info(
-            f'  {FRAME_NOTE}' if self.slam_is_enu else
+            f'  {FRAME_NOTE}' if slam_frame == 'enu' else
+            f'  {VI_FRAME_NOTE}' if slam_frame == 'vi' else
             '  slam_frame=ned: NO conversion applied. This reproduces '
             'the pre-2026-10-16 behaviour, in which no fixed '
             'map-to-world rotation exists. Intended only for '
@@ -442,6 +459,7 @@ class SlamPoseBridge(Node):
             self._reset_alignment()
             self.map_stable_since = None
             self.last_crash_t = time.time()
+            self.aligned_on_map = False
         elif self.map_stable_since is None:
             self.map_stable_since = time.time()
         self.map_pts_prev = pts
@@ -581,6 +599,7 @@ class SlamPoseBridge(Node):
             self.gate.alignment_changed(spread)
         if not was_aligned:
             self.theta_at_lock = theta
+            self.aligned_on_map = True
         kind = 'refit' if was_aligned else 'solved'
         self.get_logger().info(
             f'SLAM alignment {kind}: theta={math.degrees(theta):+.1f}deg '
@@ -598,8 +617,8 @@ class SlamPoseBridge(Node):
                    self.PUBLISH_VAR_FLOOR)
 
     def slam_cb(self, m):
-        if self.slam_is_enu:
-            enu_to_ned_pose_inplace(m.pose)
+        if self.to_ned is not None:
+            self.to_ned(m.pose)
         sx = m.pose.position.x
         sy = m.pose.position.y
 
@@ -616,6 +635,13 @@ class SlamPoseBridge(Node):
                            or (self.last_crash_t is not None
                                and time.time() - self.last_crash_t
                                <= self.CRASH_JUMP_WINDOW))
+                if not self.aligned_on_map and not new_map:
+                    self.get_logger().warn(
+                        f'jump before this map was ever aligned -- treated '
+                        f'as a new map, not quarantined')
+                    new_map = True
+                if new_map:
+                    self.aligned_on_map = False
                 if self.jump_policy == 'quarantine' and not new_map \
                         and not self.quarantined:
                     self.quarantined = True

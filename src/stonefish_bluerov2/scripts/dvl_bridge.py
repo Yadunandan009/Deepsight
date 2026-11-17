@@ -60,6 +60,24 @@ with the datasheet values in `dvl_a50.yaml`. The published covariance is
 deliberately NOT inflated to cover these terms: a real unit's reported
 covariance describes its random error only, and inflating it here would
 partly hide the effect being measured.
+
+BOTTOM-LOCK LOSS. Stonefish returns a velocity at any altitude up to the
+scenario's altitude_max (100 m). A real unit loses bottom lock when the
+seabed is too far away. `max_altitude` > 0 replaces every sample whose
+altitude is above it (or not positive) by "no velocity information": zero
+velocity with a 1-sigma of `lost_sigma` m/s per axis (default 0.5, the
+vehicle's top commanded speed). Publishing nothing instead was tried in the
+2026-11-09 shakedown and failed: robot_localization fuses no accelerations,
+so with no twist the x/y velocity variance grows without bound, and depth
+updates leak into x/y through the attitude cross-terms. Both filters jumped
+(main EKF 157 m off while sitting at the surface, 2.4 km at the start of
+the descent; DR filter 54 m) before the mission started. The bounded prior
+says only that the vehicle moves at under ~0.5 m/s, so dead-reckoned
+position still drifts by the distance travelled while lock is lost.
+The Water Linked A50 is listed
+at 50 m maximum altitude, with performance above 35 m dependent on seabed
+and salinity; the deep-water arms use 35 m. Default 0 = never lost, so
+earlier runs reproduce exactly.
 """
 import math
 
@@ -93,6 +111,11 @@ class DVLBridge(Node):
         self.declare_parameter('scale_sigma', 0.0)
         self.declare_parameter('misalign_sigma_deg', 0.0)
         self.declare_parameter('error_seed', 0)
+        self.declare_parameter('max_altitude', 0.0)
+        self.max_alt = float(self.get_parameter('max_altitude').value)
+        self.declare_parameter('lost_sigma', 0.5)
+        self.lost_var = float(self.get_parameter('lost_sigma').value) ** 2
+        self.locked = None
         ss = float(self.get_parameter('scale_sigma').value)
         ms = math.radians(float(self.get_parameter('misalign_sigma_deg').value))
         seed = int(self.get_parameter('error_seed').value)
@@ -138,6 +161,25 @@ class DVLBridge(Node):
         ]
 
     def cb(self, m):
+        if self.max_alt > 0.0:
+            lock = 0.0 < m.altitude <= self.max_alt
+            if lock != self.locked:
+                self.get_logger().warn(
+                    f'DVL bottom lock {"REGAINED" if lock else "LOST"}: '
+                    f'altitude {m.altitude:.2f} m, limit {self.max_alt:.1f} m')
+                self.locked = lock
+            if not lock:
+                msg = TwistWithCovarianceStamped()
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.frame_id = 'bluerov2/base_link'
+                msg.twist.covariance[0] = self.lost_var
+                msg.twist.covariance[7] = self.lost_var
+                msg.twist.covariance[14] = self.lost_var
+                msg.twist.covariance[21] = 9999.0
+                msg.twist.covariance[28] = 9999.0
+                msg.twist.covariance[35] = 9999.0
+                self.pub.publish(msg)
+                return
         msg = TwistWithCovarianceStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'bluerov2/base_link'

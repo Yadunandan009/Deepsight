@@ -272,6 +272,13 @@ class InspectV8(Node):
     D_BASE, D_TOP     = 22.0, 1.0
     D_TRANSIT, D_RISE = 10.0, 2.0
     D_MAX             = 23.5
+    # D_BASE and D_MAX can be overridden with --ros-args -p d_base:=<m>, for
+    # the deep-water scene (bluerov2_turbine_deep.scn, seabed at 50 m):
+    # d_base:=47.0 keeps the same 3 m clearance above the seabed, and D_MAX
+    # follows it with the same 1.5 m margin. D_TRANSIT likewise takes
+    # -p d_transit:=<m>: the face-to-face orbit at 10 m is 40 m above that
+    # seabed, past the A50's 35 m bottom-lock limit, so every transit ran
+    # dead-reckoning-free and the 2026-11-09 shakedown ended 22 m off.
 
     # ── Velocity limits ─────────────────────────────────────────
     V_SURGE_MAX = 0.50
@@ -606,6 +613,11 @@ class InspectV8(Node):
     # ════════════════════════════════════════════════════════════
     def __init__(self):
         super().__init__('inspect_v8')
+        self.declare_parameter('d_base', self.D_BASE)
+        self.D_BASE = float(self.get_parameter('d_base').value)
+        self.D_MAX = self.D_BASE + 1.5
+        self.declare_parameter('d_transit', self.D_TRANSIT)
+        self.D_TRANSIT = float(self.get_parameter('d_transit').value)
         qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
                          history=HistoryPolicy.KEEP_LAST, depth=10)
 

@@ -1,0 +1,197 @@
+%YAML:1.0
+File.version: "1.0"
+
+Camera.type: "PinHole"
+
+Camera1.fx: 417.03
+Camera1.fy: 417.03
+Camera1.cx: 320.0
+Camera1.cy: 240.0
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+
+Camera2.fx: 417.03
+Camera2.fy: 417.03
+Camera2.cx: 320.0
+Camera2.cy: 240.0
+Camera2.k1: 0.0
+Camera2.k2: 0.0
+Camera2.p1: 0.0
+Camera2.p2: 0.0
+
+Camera.width: 640
+Camera.height: 480
+Camera.newWidth: 640
+Camera.newHeight: 480
+# Measured, not nominal. The scenario declares the stereo cameras at
+# rate="30.0", but Stonefish delivers 14.9 Hz idle and 11.9 Hz under
+# mission load (header-stamp deltas; 15275 SLAM poses over 1284 s in
+# a50_slamref_seed0_20261014_153610). ORB-SLAM3 derives mMaxFrames from
+# this as a FRAME COUNT and assumes frames arrive at the declared rate,
+# so a value of 30 stretches three windows to ~2.5x their intended
+# duration: the forced-keyframe interval (Tracking.cc:3159), the
+# post-relocalisation 50-inlier bar (Tracking.cc:3033) and the
+# post-relocalisation keyframe-insertion block (Tracking.cc:3094).
+# The last two sit inside the loss -> relocalise -> loss cycle.
+Camera.fps: 12
+Camera.RGB: 1
+
+Stereo.b: 0.145
+Stereo.ThDepth: 40.0
+Stereo.T_c1_c2: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [1.0, 0.0, 0.0, 0.0,
+          0.0, 1.0, 0.0, 0.145,
+          0.0, 0.0, 1.0, 0.0,
+          0.0, 0.0, 0.0, 1.0]
+
+LEFT.height: 480
+LEFT.width: 640
+LEFT.D: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [0.0, 0.0, 0.0, 0.0, 0.0]
+LEFT.K: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [417.03, 0.0, 320.0, 0.0, 417.03, 240.0, 0.0, 0.0, 1.0]
+LEFT.R: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+LEFT.P: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [417.03, 0.0, 320.0, 0.0, 0.0, 417.03, 240.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+
+RIGHT.height: 480
+RIGHT.width: 640
+RIGHT.D: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [0.0, 0.0, 0.0, 0.0, 0.0]
+RIGHT.K: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [417.03, 0.0, 320.0, 0.0, 417.03, 240.0, 0.0, 0.0, 1.0]
+RIGHT.R: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+RIGHT.P: !!opencv-matrix
+   rows: 3
+   cols: 4
+   dt: d
+   data: [417.03, 0.0, 320.0, -60.47, 0.0, 417.03, 240.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+
+ORBextractor.nFeatures: 1500
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0
+System.SaveAtlasToFile: "/tmp/host/deepsight_map_vi"
+#System.LoadAtlasFromFile: "/tmp/host/deepsight_map_vi"
+
+#--------------------------------------------------------------------------------------------
+# Heading-consistency check on loop closures, map merges and relocalizations
+# (ORB_SLAM3 HeadingPrior.h). The heading comes from heading_imu_topic in
+# bluerov2-stereo-ros-params.yaml. Every decision is printed as a [HEADING]
+# line in the container console.
+#   Mode 0  off (stock ORB-SLAM3)
+#   Mode 1  log only: compute and print, never refuse a match
+#   Mode 2  refuse a match whose turn disagrees with the IMU by > Threshold
+# Threshold is half the jacket's four-fold symmetry angle.
+# DownInCamera: +y, a level forward-looking camera (bluerov2.scn rpy 1.571 0 1.571).
+#--------------------------------------------------------------------------------------------
+Heading.Mode: 2
+Heading.Threshold: 45.0
+Heading.MaxGap: 0.5
+Heading.DownInCamera: [0.0, 1.0, 0.0]
+
+#--------------------------------------------------------------------------------------------
+# CONTROL COPY: the IMU values the 2026-11-15 shakedown flight actually ran
+# (NoiseAcc 1.2e-2, GyroWalk 1e-5, AccWalk 1e-4), plus IMU.fastInit, which a
+# replay needs to start a map mid-descent. Replaying this and getting back
+# what the flight produced is what shows a replay is faithful; only then does
+# a replay of bluerov2_stereo_imu.yaml say anything about the new values.
+# Not for flights.
+#--------------------------------------------------------------------------------------------
+# Stereo-inertial (run_stereo_slam.sh with SLAM_MODE=stereo_imu). Everything
+# above is bluerov2_stereo.yaml unchanged; this block is the only difference.
+#
+# IMU = imu_filter in bluerov2.scn: base_link origin, no rotation, NED body
+# axes (x forward, y right, z down), 200 Hz on /bluerov2/imu.
+#
+# T_b_c1 maps a point from the LEFT camera frame to the IMU frame. camera_left
+# sits at xyz 0.16 -0.0725 0.15 with rpy 1.571 0 1.571, which makes its axes,
+# in body coordinates, x_c = +y_b (right), y_c = +z_b (down), z_c = +x_b
+# (forward): the OpenCV optical frame of a level forward-looking camera, the
+# same fact Heading.DownInCamera [0 1 0] encodes. Those three vectors are the
+# rotation's columns.
+#
+# Noise is continuous-time density; ORB-SLAM3 multiplies by sqrt(Frequency).
+#   gyro  0.01745 rad/s per sample (scn noise angular_velocity; measured
+#         0.01741-0.01745 about an 11-sample local mean in
+#         a50_vishake_seed0_20261115_021022) -> 1.23e-3, set 1.3e-3
+#   accel the scn gives none for imu_filter. Measured white noise is
+#         2.4e-4 (largest axis), and the signal matches truth specific force
+#         in the BODY frame to 0.005 m/s^2 rms with zero mean. Set 2.0e-3:
+#         EuRoC's ADIS16448 figure, 8x the measured noise. The margin stands
+#         for what the model leaves out (camera-IMU stamp jitter: 3196 IMU
+#         samples arrive < 1 ms apart in that bag; simulator stepping).
+#   walks Stonefish models no bias drift. GyroWalk 1e-6 lets the gyro bias
+#         move about 0.002 deg/s over a 30-minute mission; AccWalk 1e-4.
+#
+# HISTORY. Shakedown flight 2026-11-15: NoiseAcc 1.2e-2 (first differences,
+# i.e. the vehicle's sway, 50x the noise), GyroWalk 1e-5, AccWalk 1e-4.
+# Tracking held (0 map resets in 34 min) but the map sat 5-9 deg off level
+# and its heading drifted a steady -0.04 deg/s against the IMU: the bias
+# wander GyroWalk 1e-5 permits. The gyro itself is clean.
+# Replay 2026-11-16 with NoiseAcc 2.5e-4 (measured + 5%), GyroWalk 1e-6,
+# AccWalk 1e-5: each new map lost tracking right after VIBA 1 and was reset,
+# 6 times in 4 minutes (0.30 tracking failures/s vs 0.09 in flight) -- the
+# accelerometer trusted beyond what the rest of the model can match.
+#--------------------------------------------------------------------------------------------
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [0.0, 0.0, 1.0, 0.16,
+          1.0, 0.0, 0.0, -0.0725,
+          0.0, 1.0, 0.0, 0.15,
+          0.0, 0.0, 0.0, 1.0]
+IMU.NoiseGyro: 1.3e-03
+IMU.NoiseAcc: 1.2e-02
+IMU.GyroWalk: 1.0e-05
+IMU.AccWalk: 1.0e-04
+IMU.Frequency: 200.0
+# Start the map without waiting for a 0.5 m/s^2 change in acceleration between
+# frames. That check is a monocular-scale safeguard; with stereo the first map
+# has metric depth anyway, and the IMU initialisation (VIBA 1 and 2) still runs
+# on its own schedule. Needed for replays, which begin mid-descent at constant
+# speed: the first replay of a50_vishake_seed0 never started a map (327 x
+# "not enough acceleration"). Takes effect only with the Tracking.cc fix in
+# Dockerfile.heading-vi. The shakedown flight of 2026-11-15 ran without it.
+IMU.fastInit: 1

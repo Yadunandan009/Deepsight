@@ -34,7 +34,8 @@ a true -452 deg.
 """
 
 __all__ = ["enu_to_ned_xyz", "enu_to_ned_quat", "enu_to_ned_pose",
-           "enu_to_ned_pose_inplace", "FRAME_NOTE"]
+           "enu_to_ned_pose_inplace", "FRAME_NOTE",
+           "vi_to_ned_xyz", "vi_to_ned_pose_inplace", "VI_FRAME_NOTE"]
 
 FRAME_NOTE = ("SLAM pose treated as ENU (z up) and converted to this "
               "workspace's NED (z down): y,z negated, yaw inverted")
@@ -75,9 +76,98 @@ def enu_to_ned_pose_inplace(pose):
     return pose
 
 
+VI_FRAME_NOTE = ("SLAM pose treated as stereo-inertial ORB-SLAM3: published "
+                 "z down, taken as NED as-is (measured 2026-11-15)")
+
+
+# Stereo-inertial ORB-SLAM3 publishes in a DIFFERENT frame from stereo-only,
+# and enu_to_ned is wrong for it.
+#
+# MEASURED, not derived. On a50_vishake_seed0_20261115_021022 the published
+# z follows Stonefish depth with correlation 1.000 over the whole mission
+# (descent: published dz +4.5 m per truth +5.1 m), x and y carry the
+# horizontal motion, and a proper rotation about z fits the trajectory far
+# better than a mirror image (Sim(3) rms 3.3 m vs 10.0 m over 900 s). So the
+# published pose is already NED-like: z down, right-handed, with an
+# arbitrary heading, which the bridge fits anyway.
+#
+# The first version of this function was derived from the wrapper source
+# instead (ros = (z_orb, -x_orb, -y_orb) on a gravity-aligned map with z up,
+# which puts UP in published x) and mapped (x, y, z) -> (-y, z, -x). That
+# derivation misread which frame TrackStereo's pose is in once the IMU is
+# initialised; the shakedown showed the result tilted 85 deg from level.
+# The self-test below now checks the measured fact: published +z is NED down.
+def vi_to_ned_xyz(x, y, z):
+    """Position, published stereo-inertial pose -> NED. Returns (x, y, z).
+
+    Identity: the published pose is already z-down and right-handed (see
+    above). Kept as a function so the bridge, the replay tools and the
+    orientation rule below all go through one place.
+    """
+    return x, y, z
+
+
+def _matrix_of(f):
+    """The 3x3 matrix of a linear map given as f(x, y, z) -> (x, y, z)."""
+    cols = [f(*e) for e in ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))]
+    return [[cols[j][i] for j in range(3)] for i in range(3)]
+
+
+def _quat_of(R):
+    """(w, x, y, z) of a proper rotation matrix (Shepperd's method)."""
+    import math
+    t = R[0][0] + R[1][1] + R[2][2]
+    if t > 0:
+        s = 2.0 * math.sqrt(1.0 + t)
+        return (0.25 * s, (R[2][1] - R[1][2]) / s, (R[0][2] - R[2][0]) / s,
+                (R[1][0] - R[0][1]) / s)
+    i = max(range(3), key=lambda k: R[k][k])
+    j, k = (i + 1) % 3, (i + 2) % 3
+    s = 2.0 * math.sqrt(1.0 + R[i][i] - R[j][j] - R[k][k])
+    q = [0.0, 0.0, 0.0, 0.0]
+    q[0] = (R[k][j] - R[j][k]) / s
+    q[1 + i] = 0.25 * s
+    q[1 + j] = (R[j][i] + R[i][j]) / s
+    q[1 + k] = (R[k][i] + R[i][k]) / s
+    return tuple(q)
+
+
+def _qmul(a, b):
+    aw, ax, ay, az = a
+    bw, bx, by, bz = b
+    return (aw*bw - ax*bx - ay*by - az*bz, aw*bx + ax*bw + ay*bz - az*by,
+            aw*by - ax*bz + ay*bw + az*bx, aw*bz + ax*by - ay*bx + az*bw)
+
+
+_Q_VI = None
+_Q_BODY = (1.0, 0.0, 0.0, 0.0)   # body axes as published: no flip measured
+
+
+def vi_to_ned_pose_inplace(pose):
+    """Convert a published stereo-inertial pose to NED in place, return it.
+
+    Orientation is derived from vi_to_ned_xyz, not written separately, so the
+    two cannot disagree: the world side turns by the same rotation as the
+    position. The body side is left as published; nothing downstream reads
+    the SLAM orientation except as a heading offset, which the bridge fits.
+    """
+    global _Q_VI
+    if _Q_VI is None:
+        _Q_VI = _quat_of(_matrix_of(vi_to_ned_xyz))
+    p = pose.position
+    p.x, p.y, p.z = vi_to_ned_xyz(p.x, p.y, p.z)
+    o = pose.orientation
+    o.w, o.x, o.y, o.z = _qmul(_qmul(_Q_VI, (o.w, o.x, o.y, o.z)), _Q_BODY)
+    return pose
+
+
 def _self_test():
     """Check the two rules agree with the rotation they claim to be."""
     import math
+    try:
+        _vi_self_test()
+    except NotImplementedError:
+        print("frames.py: vi_to_ned_xyz not written yet, skipping its test")
     import numpy as np
     R = np.diag([1.0, -1.0, -1.0])
     assert abs(np.linalg.det(R) - 1.0) < 1e-12, "not a proper rotation"
@@ -109,6 +199,29 @@ def _self_test():
                           1 - 2*(y2*y2 + z2*z2)) + psi) < 1e-12
     print("frames.py self-test OK: position and orientation both agree "
           "with a 180 deg rotation about x, and yaw inverts")
+
+
+def _vi_self_test():
+    import numpy as np
+    from types import SimpleNamespace as NS
+    R = np.array(_matrix_of(vi_to_ned_xyz), float)
+    assert np.allclose(R @ R.T, np.eye(3)), "vi_to_ned_xyz is not a rotation"
+    assert abs(np.linalg.det(R) - 1.0) < 1e-12, \
+        "vi_to_ned_xyz is a reflection (det -1), not a rotation"
+    # published +z follows depth (measured), so it must stay NED down
+    assert np.allclose(R @ [0, 0, 1], [0, 0, 1]), \
+        f"published +z (down) maps to {R @ [0, 0, 1]}, not NED down (0, 0, 1)"
+    # orientation follows the same rotation on the world side
+    pose = NS(position=NS(x=1.0, y=2.0, z=3.0),
+              orientation=NS(w=1.0, x=0.0, y=0.0, z=0.0))
+    vi_to_ned_pose_inplace(pose)
+    w, x, y, z = (pose.orientation.w, pose.orientation.x,
+                  pose.orientation.y, pose.orientation.z)
+    Rq = np.array([[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
+                   [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
+                   [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]])
+    assert np.allclose(Rq, R)
+    print("frames.py vi self-test OK: proper rotation, published z -> NED down")
 
 
 if __name__ == "__main__":

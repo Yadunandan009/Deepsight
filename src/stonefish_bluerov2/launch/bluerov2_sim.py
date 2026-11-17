@@ -48,7 +48,9 @@ def generate_launch_description():
         default_value='enu',
         description="Frame the SLAM pose arrives in: 'enu' converts it to "
                     "this workspace's NED (correct), 'ned' passes it "
-                    "through unchanged (reproduces pre-2026-10-16 runs)."
+                    "through unchanged (reproduces pre-2026-10-16 runs), "
+                    "'vi' is for stereo-inertial ORB-SLAM3 "
+                    "(SLAM_MODE=stereo_imu), whose map is gravity-aligned."
     )
     slam_frame = LaunchConfiguration('slam_frame')
 
@@ -123,6 +125,12 @@ def generate_launch_description():
         'dvl_seed', default_value='0',
         description='Selects which DVL unit is simulated; sweep for a spread')
     dvl_seed = LaunchConfiguration('dvl_seed')
+
+    dvl_max_alt_arg = DeclareLaunchArgument(
+        'dvl_max_altitude', default_value='0.0',
+        description='DVL loses bottom lock above this altitude [m]; 0 = never '
+                    '(the deep-water arms use 35.0)')
+    dvl_max_alt = LaunchConfiguration('dvl_max_altitude')
 
     # 3. Stonefish Simulator
     launch_include = IncludeLaunchDescription(
@@ -221,14 +229,16 @@ def generate_launch_description():
     )
     dvl_bridge = Node(
         condition=UnlessCondition(_dvl_is_a50),
-        parameters=[{'error_seed': ParameterValue(dvl_seed, value_type=int)}],
+        parameters=[{'error_seed': ParameterValue(dvl_seed, value_type=int),
+                     'max_altitude': ParameterValue(dvl_max_alt, value_type=float)}],
         **_dvl_common,
     )
     dvl_bridge_a50 = Node(
         condition=IfCondition(_dvl_is_a50),
         parameters=[
             os.path.join(stonefish_bluerov2_dir, 'dvl_a50.yaml'),
-            {'error_seed': ParameterValue(dvl_seed, value_type=int)},
+            {'error_seed': ParameterValue(dvl_seed, value_type=int),
+             'max_altitude': ParameterValue(dvl_max_alt, value_type=float)},
         ],
         **_dvl_common,
     )
@@ -383,6 +393,7 @@ def generate_launch_description():
         rviz_arg,
         dvl_error_arg,
         dvl_seed_arg,
+        dvl_max_alt_arg,
         dr_reference_arg,
         adaptive_gate_arg,
         jump_policy_arg,
