@@ -37,6 +37,10 @@ if [ ! -f "$SLAM/$CFG" ]; then
 fi
 B="$(grep -m1 '^Stereo.b:' "$SLAM/$CFG" | awk '{print $2}')"
 echo "stereo config: $CFG   (Stereo.b = $B m, close-depth gate = b*ThDepth)"
+HMODE="$(grep -m1 '^Heading.Mode:' "$SLAM/$CFG" | awk '{print $2}')"
+echo "=================================================================="
+echo "  Heading.Mode = ${HMODE:-unset}   (1 -> stkL0 / stkL5,  2 -> vetoL0)"
+echo "=================================================================="
 echo "Check this matches the scenario you launched:"
 echo "   b=0.145 -> scenario:=bluerov2_turbine"
 echo "   b=0.3   -> scenario:=bluerov2_turbine_b30"
