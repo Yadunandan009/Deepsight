@@ -73,8 +73,9 @@ MARGIN_LO, MARGIN_HI = 3.0, 30.0
 _TS = re.compile(r"\[(\d{10}\.\d+)\]")
 
 
-def log_events(path):
-    """`Loop detected` events with the interval they must lie in."""
+def log_events(path, marker="Loop detected", release="Local Mapping RELEASE"):
+    """`Loop detected` events with the interval they must lie in. With
+    marker="*Merge detected", release="Merge finished!" the same for merges."""
     lines = open(path, errors="replace").read().splitlines()
     ts = [None] * len(lines)
     for i, ln in enumerate(lines):
@@ -94,10 +95,10 @@ def log_events(path):
 
     out = []
     for i, ln in enumerate(lines):
-        if "Loop detected" not in ln:
+        if marker not in ln:
             continue
         rel = next((k for k in range(i, min(i + 200, len(lines)))
-                    if "Local Mapping RELEASE" in lines[k]), i)
+                    if release in lines[k]), i)
         out.append((prev_ts(i), next_ts(rel + 1) or next_ts(rel)))
     return out
 
@@ -155,11 +156,13 @@ def wrap_deg(a):
     return (a + 180.0) % 360.0 - 180.0
 
 
-def classify(bag, log):
+def classify(bag, log, events=None):
+    """events: wall-clock intervals [(lo, hi), ...]; default the log's loops."""
     sl, tr = track(bag, "/bluerov2/robot_pose_slam", True), \
         track(bag, "/bluerov2/odometry", False)
     t0 = tr[0, 0]
-    events = log_events(log)
+    if events is None:
+        events = log_events(log)
     rows, prev_step_t = [], -1e18
     for (lo, hi) in events:
         w = (sl[:-1, 0] >= lo - MARGIN_LO) & (sl[:-1, 0] <= hi + MARGIN_HI)
