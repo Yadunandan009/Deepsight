@@ -29,13 +29,24 @@ DESIGN, and why it is built this way.
 
 NAVIGATION SOURCES.
     truth       /bluerov2/odometry                    the sensor floor
-    dr          /bluerov2/odometry/dr                 SLAM-free reference filter
+    dr          /bluerov2/odometry/dr                 SLAM-free reference filter,
+                with z from /bluerov2/depth_pose      horizontal and orientation
+                                                      its own (see DR DEPTH below)
     filtered    /bluerov2/odometry/filtered           the primary filter (SLAM
                                                       fused when SLAM is up)
     slam_trust  raw SLAM pose through an alignment    a COUNTERFACTUAL: what a
                 fitted on the poses BEFORE the         vehicle that trusted SLAM
                 closure and then held fixed            through the closure would
                                                        have built
+    DR DEPTH (corrected 2026-11-27). ekf_dr.yaml lists depth as pose1 with no
+    pose0, and robot_localization stops enumerating inputs at the first
+    missing index, so the DR filter never fused depth and its z drifts by
+    metres, while the primary filter (pose0 SLAM, pose1 depth) always had it.
+    Every DR reconstruction before this date carried that error, which is what
+    made fusing SLAM look like a 19-50 % gain in the old Table 7. 'dr' now
+    takes z from the depth sensor (about 1 cm, not ground truth): what the DR
+    filter gives with depth wired in. SONAR_RECON_RAW_DR=1 restores the raw
+    track, for reproducing the old numbers.
     slam_trust takes x, y and the rotation from SLAM and z from truth (the
     depth sensor is good to about 1 cm). The rotation is SLAM's own,
     calibrated by a constant offset fitted before the closure only; that fit's
@@ -81,6 +92,7 @@ MAX_SLAM_GAP = 0.5                           # s, beyond this SLAM has no pose
 T_TRUTH, T_DR, T_FILT = ("/bluerov2/odometry", "/bluerov2/odometry/dr",
                          "/bluerov2/odometry/filtered")
 T_SLAM, T_SONAR = "/bluerov2/robot_pose_slam", "/bluerov2/multibeam_raw"
+T_DEPTH = "/bluerov2/depth_pose"
 
 
 # ------------------------------------------------------------------- mesh
@@ -148,9 +160,9 @@ class Track:
 
 
 def read_bag(bag):
-    want = (T_TRUTH, T_DR, T_FILT, T_SLAM, T_SONAR)
+    want = (T_TRUTH, T_DR, T_FILT, T_SLAM, T_SONAR, T_DEPTH)
     od = {T_TRUTH: [], T_DR: [], T_FILT: []}
-    slam, scans = [], []
+    slam, scans, depth = [], [], []
     for f in sorted(glob.glob(os.path.join(bag, "*.mcap"))):
         for m in read_ros2_messages(f, topics=list(want)):
             t = (m.log_time.timestamp() if hasattr(m.log_time, "timestamp")
@@ -169,11 +181,19 @@ def read_bag(bag):
             elif top == T_SONAR:
                 scans.append((t, np.array(r.ranges, float), r.angle_min,
                               r.angle_increment, r.range_min, r.range_max))
+            elif top == T_DEPTH:
+                depth.append((t, r.pose.pose.position.z))
     tracks = {}
     for k, name in ((T_TRUTH, "truth"), (T_DR, "dr"), (T_FILT, "filtered")):
         if od[k]:
             a = np.array(od[k])
             tracks[name] = Track(a[:, 0], a[:, 1:4], Rot.from_quat(a[:, 4:8]))
+    if "dr" in tracks and depth and not os.environ.get("SONAR_RECON_RAW_DR"):
+        d = np.array(depth)                                # DR DEPTH, see above
+        dr = tracks["dr"]
+        p = dr.pos.copy()
+        p[:, 2] = np.interp(dr.t, d[:, 0], d[:, 1])
+        tracks["dr"] = Track(dr.t, p, dr.rot)
     s = np.array(slam) if slam else None
     return tracks, s, scans
 

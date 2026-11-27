@@ -51,11 +51,13 @@ for j, (src, lab, col, part) in enumerate(SRC):
         ax.text(x, y * 1.08, "%.1f m" % y if y >= 1 else "%.0f cm" % (y * 100), ha="center", fontsize=4.8,
                 rotation=90, va="bottom")
 ax.set_yscale("log")
-ax.set_ylim(0.04, 40)
+ax.set_ylim(0.04, 80)
 ax.set_xticks(range(len(rows)))
 ax.set_xticklabels([k.replace("slamref_s", "stock\nseed ").replace("L0_s", "L0 stage 1\nseed ")
                     for k, _ in rows], fontsize=6.5)
 ax.set_ylabel("reconstruction RMS to the CAD (m)")
-ax.legend(loc="upper left", fontsize=6, ncol=2, columnspacing=0.8)
+# above the axes: inside, the tallest bars' labels ran into it
+ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), fontsize=6, ncol=4, columnspacing=0.8,
+          frameon=False)
 save(fig, os.path.join(HERE, "figures", "fig_recon_sim2"))
 print("wrote eval/figures/fig_recon_sim2.{pdf,png}", [k for k, _ in rows])
