@@ -1,0 +1,1803 @@
+{
+ "flights": [
+  {
+   "block": 0,
+   "arm": "stkL0",
+   "seed": 0,
+   "bag": "a50_stkL0_seed0_20261117_131341",
+   "log": "orb_slam3_console_20261117_131327.log",
+   "complete_before_stop": null,
+   "t_return_home": 1101.1908102035522,
+   "t_collision": null,
+   "sonar_min": 3.5543463230133057,
+   "sonar_min_t": 974.4428381919861,
+   "cutoff": 1101.1908102035522,
+   "t_complete": 1154.1908102035522,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1036.3691930770874,
+     "raw_step": 0.12187819418886932,
+     "resid": 0.1639866428865476,
+     "scale": 0.9521654211532546,
+     "chord": 0.11604820209924335,
+     "r_before": 16.55182612112879,
+     "dr": 0.00700952811245278,
+     "turn": -0.008747801782845954,
+     "bearing_before": -178.64018937080792,
+     "bearing_after": -178.64893717259076,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.2
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1035.9913439750671,
+     "age": 926.6189999580383,
+     "resid": -0.2,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.8160885948277309,
+     "match_turn": 2.3879352889280767,
+     "match_dr": -0.024304361368282748
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.18011605721089502,
+   "dr_median": 0.07493062120858936,
+   "filt_end": 2.5542797943416695,
+   "dr_end": 0.04892427910861822,
+   "end_from_home": 4.429544666221704
+  },
+  {
+   "block": 0,
+   "arm": "vetoL0",
+   "seed": 0,
+   "bag": "a50_vetoL0_seed0_20261117_134842",
+   "log": "orb_slam3_console_20261117_134833.log",
+   "complete_before_stop": null,
+   "t_return_home": 1101.0331389904022,
+   "t_collision": null,
+   "sonar_min": 2.738053560256958,
+   "sonar_min_t": 752.3300931453705,
+   "cutoff": 1101.0331389904022,
+   "t_complete": 1143.0331389904022,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1045.1649742126465,
+     "raw_step": 0.8024043296681823,
+     "resid": 0.5944653497098795,
+     "scale": 0.9651404507783634,
+     "chord": 0.7744328764424606,
+     "r_before": 17.63451429046926,
+     "dr": -0.03359783201754275,
+     "turn": 1.648327636500312,
+     "bearing_before": 178.87885131249934,
+     "bearing_after": -179.47282105100035,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.2
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1044.5653882026672,
+     "age": 849.4170000553131,
+     "resid": -0.2,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 1.8043538622575745,
+     "match_turn": 0.2583799725149163,
+     "match_dr": -0.09865441556160802
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.5864462225091935,
+   "dr_median": 0.08753522027043276,
+   "filt_end": 3.085398335263084,
+   "dr_end": 0.013424858974217383,
+   "end_from_home": 4.931915521438446
+  },
+  {
+   "block": 0,
+   "arm": "stkL5",
+   "seed": 0,
+   "bag": "a50_stkL5_seed0_20261117_174745",
+   "log": "orb_slam3_console_20261117_174736.log",
+   "complete_before_stop": null,
+   "t_return_home": 1084.5592398643494,
+   "t_collision": null,
+   "sonar_min": 1.762650489807129,
+   "sonar_min_t": 722.0817189216614,
+   "cutoff": 1084.5592398643494,
+   "t_complete": 1141.5592398643494,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1020.6058008670807,
+     "raw_step": 2.2318871498526467,
+     "resid": 0.5181484097370795,
+     "scale": 0.9751542787356268,
+     "chord": 2.176434303833872,
+     "r_before": 17.599519864537726,
+     "dr": -0.0681229880169852,
+     "turn": -6.1287082441725715,
+     "bearing_before": -177.7041698548024,
+     "bearing_after": 176.16712190102504,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.5
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1020.2796189785004,
+     "age": 931.0860002040863,
+     "resid": -0.5,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.9275622478576991,
+     "match_turn": 2.9262230241525913,
+     "match_dr": -0.02142939442752558
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.258869779133522,
+   "dr_median": 0.07893060255699594,
+   "filt_end": 4.521215648080635,
+   "dr_end": 0.019636473444566347,
+   "end_from_home": 6.424812689078223
+  },
+  {
+   "block": 1,
+   "arm": "vetoL0",
+   "seed": 1,
+   "bag": "a50_vetoL0_seed1_20261119_151429",
+   "log": "orb_slam3_console_20261119_151415.log",
+   "complete_before_stop": null,
+   "t_return_home": 1069.1304800510406,
+   "t_collision": null,
+   "sonar_min": 3.455098867416382,
+   "sonar_min_t": 946.5701179504395,
+   "cutoff": 1069.1304800510406,
+   "t_complete": 1124.5857329368591,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1004.7375450134277,
+     "raw_step": 0.31811585375644347,
+     "resid": 0.1513421899945591,
+     "scale": 0.9539318871543794,
+     "chord": 0.3034608567076117,
+     "r_before": 16.900267022144362,
+     "dr": -0.0021556127613339697,
+     "turn": 1.0224776171001508,
+     "bearing_before": -178.254448959068,
+     "bearing_after": -177.23197134196784,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -1.8
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1004.2517910003662,
+     "age": 848.9500000476837,
+     "resid": -1.8,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 1.1113936147401817,
+     "match_turn": 2.21759029594034,
+     "match_dr": 0.05807526789907869
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.32061529766652114,
+   "dr_median": 0.1719630209788985,
+   "filt_end": 2.993772399927835,
+   "dr_end": 0.0592458565879439,
+   "end_from_home": 4.859856269552346
+  },
+  {
+   "block": 1,
+   "arm": "stkL5",
+   "seed": 1,
+   "bag": "a50_stkL5_seed1_20261119_172622",
+   "log": "orb_slam3_console_20261119_172558.log",
+   "complete_before_stop": null,
+   "t_return_home": 1113.3742280006409,
+   "t_collision": null,
+   "sonar_min": 2.89045786857605,
+   "sonar_min_t": 632.9758751392365,
+   "cutoff": 1113.3742280006409,
+   "t_complete": 1206.3742280006409,
+   "t_complete_exact": null,
+   "n_loop_lines": 0,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [],
+   "decisions": [],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.3990588157059852,
+   "dr_median": 0.17581368053880245,
+   "filt_end": 4.725567763397598,
+   "dr_end": 0.18450182076839386,
+   "end_from_home": 5.322868238440887
+  },
+  {
+   "block": 1,
+   "arm": "stkL0",
+   "seed": 1,
+   "bag": "a50_stkL0_seed1_20261119_212200",
+   "log": "orb_slam3_console_20261119_212151.log",
+   "complete_before_stop": null,
+   "t_return_home": 1078.652223110199,
+   "t_collision": null,
+   "sonar_min": 3.5616559982299805,
+   "sonar_min_t": 949.632865190506,
+   "cutoff": 1078.652223110199,
+   "t_complete": 1118.652223110199,
+   "t_complete_exact": null,
+   "n_loop_lines": 2,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1026.710371017456,
+     "raw_step": 25.237190871321573,
+     "resid": 0.2668169393519058,
+     "scale": 0.9686681906937845,
+     "chord": 24.446464019516768,
+     "r_before": 17.082520541110437,
+     "dr": 0.02389252735254445,
+     "turn": 89.98981052232136,
+     "bearing_before": 178.7670024471387,
+     "bearing_after": -91.2431870305399,
+     "cls": "face-aliased",
+     "mult": 90.0,
+     "off": 0.01018947767863665,
+     "kind": "loop",
+     "decision": [
+      [
+       "would_veto",
+       86.0
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1010.4144730567932,
+     "age": 856.2339999675751,
+     "resid": -0.0,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.7663196484359596,
+     "match_turn": 2.2713385803631354,
+     "match_dr": -0.021550950465680823
+    },
+    {
+     "kind": "loop",
+     "t": 1025.4484732151031,
+     "age": 226.07200002670288,
+     "resid": 86.0,
+     "decision": "would_veto",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "wrong-face",
+     "match_chord": 24.301896511698683,
+     "match_turn": -89.00343872313181,
+     "match_dr": 0.031069158857242308
+    }
+   ],
+   "hit_strict": true,
+   "hit_loose": true,
+   "filt_median": 0.2312814398088095,
+   "dr_median": 0.16922725634561542,
+   "filt_end": 0.8477487491442692,
+   "dr_end": 0.08360761190979295,
+   "end_from_home": 2.0326424015354694
+  },
+  {
+   "block": 2,
+   "arm": "stkL5",
+   "seed": 2,
+   "bag": "a50_stkL5_seed2_20261120_010207",
+   "log": "orb_slam3_console_20261120_010159.log",
+   "complete_before_stop": null,
+   "t_return_home": 1079.956552028656,
+   "t_collision": null,
+   "sonar_min": 3.769075870513916,
+   "sonar_min_t": 960.831071138382,
+   "cutoff": 1079.956552028656,
+   "t_complete": 1152.956552028656,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1016.1635041236877,
+     "raw_step": 0.5732010604720617,
+     "resid": 0.06334077779165007,
+     "scale": 0.9535419611416348,
+     "chord": 0.5465712633309937,
+     "r_before": 16.92196148059628,
+     "dr": -0.03222266560009771,
+     "turn": 0.1296967005826275,
+     "bearing_before": -176.80959563357436,
+     "bearing_after": -176.67989893299173,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.4
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1015.878427028656,
+     "age": 841.7829999923706,
+     "resid": -0.4,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.7727999771760004,
+     "match_turn": 2.5728814756169527,
+     "match_dr": 0.009692084666580796
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.35530037192676067,
+   "dr_median": 0.3352199262992317,
+   "filt_end": 0.8745511277119091,
+   "dr_end": 0.07377640628188739,
+   "end_from_home": 2.6721810271554434
+  },
+  {
+   "block": 2,
+   "arm": "stkL0",
+   "seed": 2,
+   "bag": "a50_stkL0_seed2_20261120_134734",
+   "log": "orb_slam3_console_20261120_134720.log",
+   "complete_before_stop": null,
+   "t_return_home": 1091.8354818820953,
+   "t_collision": null,
+   "sonar_min": 4.021320819854736,
+   "sonar_min_t": 259.4790449142456,
+   "cutoff": 1091.8354818820953,
+   "t_complete": 1137.8354818820953,
+   "t_complete_exact": null,
+   "n_loop_lines": 2,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 804.4869549274445,
+     "raw_step": 26.03324976807448,
+     "resid": 0.0802338295617841,
+     "scale": 0.9509702595076535,
+     "chord": 24.75684628777335,
+     "r_before": 17.38404279057795,
+     "dr": 0.008734894492515462,
+     "turn": -90.29969221964484,
+     "bearing_before": -90.98703148443118,
+     "bearing_after": 178.71327629592395,
+     "cls": "face-aliased",
+     "mult": 90.0,
+     "off": 0.2996922196448395,
+     "kind": "loop",
+     "decision": [
+      [
+       "would_veto",
+       -89.9
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    },
+    {
+     "t": 1032.1245617866516,
+     "raw_step": 21.550032103894928,
+     "resid": 0.3549387110671504,
+     "scale": 0.9712431694004608,
+     "chord": 20.930321481268592,
+     "r_before": 17.83462550794816,
+     "dr": -0.13178436250192527,
+     "turn": 77.47698612750276,
+     "bearing_before": -179.00408918306778,
+     "bearing_after": -101.527103055565,
+     "cls": "other-large",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       0.9
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 803.9248960018158,
+     "age": 637.3289999961853,
+     "resid": -89.9,
+     "decision": "would_veto",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "wrong-face",
+     "match_chord": 24.223818126141094,
+     "match_turn": 88.56059571927096,
+     "match_dr": 0.028860459758778587
+    },
+    {
+     "kind": "loop",
+     "t": 1031.8458960056305,
+     "age": 869.1000001430511,
+     "resid": 0.9,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.5235655453778614,
+     "match_turn": 1.6927948207918462,
+     "match_dr": 0.007874332070892475
+    }
+   ],
+   "hit_strict": true,
+   "hit_loose": true,
+   "filt_median": 0.38448128302856976,
+   "dr_median": 0.3422469787315485,
+   "filt_end": 0.4180165320404836,
+   "dr_end": 0.07922326726923624,
+   "end_from_home": 2.3233341217117265
+  },
+  {
+   "block": 2,
+   "arm": "vetoL0",
+   "seed": 2,
+   "bag": "a50_vetoL0_seed2_20261121_005903",
+   "log": "orb_slam3_console_20261121_005850.log",
+   "complete_before_stop": null,
+   "t_return_home": 1081.0193939208984,
+   "t_collision": null,
+   "sonar_min": 3.558738946914673,
+   "sonar_min_t": 955.0985260009766,
+   "cutoff": 1081.0193939208984,
+   "t_complete": 1134.0193939208984,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1015.7927670478821,
+     "raw_step": 0.5571354668208236,
+     "resid": 0.10590799404361864,
+     "scale": 0.9531981355607296,
+     "chord": 0.5310604882283666,
+     "r_before": 16.569118286381602,
+     "dr": -0.020959116720940526,
+     "turn": -1.4041721909653688,
+     "bearing_before": -177.1975009972505,
+     "bearing_after": -178.60167318821587,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.1
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1015.5161950588226,
+     "age": 861.9000000953674,
+     "resid": -0.1,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.6239379882136957,
+     "match_turn": 1.765237630967988,
+     "match_dr": -0.02033389328262294
+    },
+    {
+     "kind": "loop",
+     "t": 1028.7501950263977,
+     "age": 227.07100009918213,
+     "resid": 89.9,
+     "decision": "veto",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "wrong-face",
+     "match_chord": 24.915258008627866,
+     "match_turn": -90.57236875637403,
+     "match_dr": -0.005258654977608677
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.34665494785950396,
+   "dr_median": 0.33637950493345486,
+   "filt_end": 2.721937587661977,
+   "dr_end": 0.0987533412260051,
+   "end_from_home": 4.629555519082462
+  },
+  {
+   "block": 3,
+   "arm": "stkL0",
+   "seed": 29,
+   "bag": "a50_stkL0_seed29_20261121_013920",
+   "log": "orb_slam3_console_20261121_013334.log",
+   "complete_before_stop": null,
+   "t_return_home": 1129.3220410346985,
+   "t_collision": null,
+   "sonar_min": 1.4248542785644531,
+   "sonar_min_t": 696.0317990779877,
+   "cutoff": 1129.3220410346985,
+   "t_complete": 1169.3220410346985,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 1,
+   "n_relocalized_lines": 1,
+   "events": [
+    {
+     "t": 1065.0794730186462,
+     "raw_step": 1.2533865682193501,
+     "resid": 1.9520180819974398,
+     "scale": 0.9907149914952983,
+     "cls": "unscorable",
+     "why": "pre-event fit residual 1.95 m",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.4
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    },
+    {
+     "t": 1130.986890077591,
+     "raw_step": 0.1721598069474032,
+     "resid": 0.7120211228505182,
+     "scale": 1.3115545873265053,
+     "chord": 0.2257969845551129,
+     "r_before": 22.68081942017048,
+     "dr": -0.0063822354462353586,
+     "turn": 0.4391736650111113,
+     "bearing_before": 164.7568270264079,
+     "bearing_after": 165.19600069141902,
+     "cls": "benign",
+     "kind": "reloc",
+     "decision": [
+      [
+       "accept",
+       1.6
+      ]
+     ],
+     "before_cutoff": false,
+     "near_cutoff": true
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1064.7414150238037,
+     "age": 877.6340000629425,
+     "resid": -0.4,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 1.2452058824493906,
+     "match_turn": 1.088804722885186,
+     "match_dr": -0.07083204701912249
+    },
+    {
+     "kind": "reloc",
+     "t": 1131.2094149589539,
+     "age": 3.0839998722076416,
+     "resid": 1.6,
+     "decision": "accept",
+     "before_cutoff": false,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.5715055282822478,
+     "match_turn": -1.0207028961758056,
+     "match_dr": 0.019140863993899464
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": true,
+   "filt_median": 3.821299059119908,
+   "dr_median": 0.0668095998754754,
+   "filt_end": 4.579080554192817,
+   "dr_end": 0.05618579122948453,
+   "end_from_home": 6.499000437639382
+  },
+  {
+   "block": 3,
+   "arm": "vetoL0",
+   "seed": 29,
+   "bag": "a50_vetoL0_seed29_20261123_203758",
+   "log": "orb_slam3_console_20261123_203741.log",
+   "complete_before_stop": null,
+   "t_return_home": 1092.5187458992004,
+   "t_collision": null,
+   "sonar_min": 3.7953202724456787,
+   "sonar_min_t": 963.4500210285187,
+   "cutoff": 1092.5187458992004,
+   "t_complete": 1150.5187458992004,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 3,
+   "n_relocalized_lines": 3,
+   "events": [
+    {
+     "t": 1028.6369140148163,
+     "raw_step": 0.5641739581251689,
+     "resid": 0.17504275947684364,
+     "scale": 0.9463056942492771,
+     "chord": 0.533881029121001,
+     "r_before": 16.373072570652997,
+     "dr": -0.029378227291061057,
+     "turn": 0.8227777884294767,
+     "bearing_before": -179.09170442879173,
+     "bearing_after": -178.26892664036225,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.2
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    },
+    {
+     "t": 1348.962145805359,
+     "raw_step": 3.6138701101573907,
+     "resid": 0.0002202605665453373,
+     "scale": 2.076996472586012e-05,
+     "chord": 7.505995471215666e-05,
+     "r_before": 23.106661154918893,
+     "dr": 2.9664739210931487e-06,
+     "turn": 7.584298435858727e-05,
+     "bearing_before": -169.1122748794908,
+     "bearing_after": -169.11219903650644,
+     "cls": "benign",
+     "kind": "reloc",
+     "decision": [
+      [
+       "accept",
+       -1.0
+      ]
+     ],
+     "before_cutoff": false,
+     "near_cutoff": false
+    },
+    {
+     "t": 1456.4231460094452,
+     "raw_step": 3.1706098318614044,
+     "resid": 3.6216076829169838e-06,
+     "scale": 4.0032908606416175e-07,
+     "chord": 1.2692873361790108e-06,
+     "r_before": 23.106717325464913,
+     "dr": -5.1128540900765395e-08,
+     "turn": -1.1506974146868743e-06,
+     "bearing_before": -169.1122444877849,
+     "bearing_after": -169.1122456384823,
+     "cls": "benign",
+     "kind": "reloc",
+     "decision": [
+      [
+       "accept",
+       -0.1
+      ]
+     ],
+     "before_cutoff": false,
+     "near_cutoff": false
+    },
+    {
+     "t": 1545.6563398838043,
+     "raw_step": 4.849546773386198,
+     "resid": 3.525545578523191e-06,
+     "scale": 2.9585627844093867e-07,
+     "chord": 1.434768860849165e-06,
+     "r_before": 23.106713488303818,
+     "dr": 5.473895906101152e-08,
+     "turn": 1.679467089843456e-06,
+     "bearing_before": -169.1122494413639,
+     "bearing_after": -169.1122477618968,
+     "cls": "benign",
+     "kind": "reloc",
+     "decision": [
+      [
+       "accept",
+       -0.3
+      ]
+     ],
+     "before_cutoff": false,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1028.1350448131561,
+     "age": 848.5499999523163,
+     "resid": -0.2,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.6971694113331153,
+     "match_turn": 1.0138001486324413,
+     "match_dr": -0.03625176919654355
+    },
+    {
+     "kind": "loop",
+     "t": 1036.8180449008942,
+     "age": 227.72099995613098,
+     "resid": 86.4,
+     "decision": "veto",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "wrong-face",
+     "match_chord": 24.27386539676999,
+     "match_turn": -88.95750217619661,
+     "match_dr": 0.015910028668082513
+    },
+    {
+     "kind": "reloc",
+     "t": 1349.991044998169,
+     "age": 27.15000009536743,
+     "resid": -1.0,
+     "decision": "accept",
+     "before_cutoff": false,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 6.126562406951148e-06,
+     "match_turn": 6.3667598624306265e-06,
+     "match_dr": 2.407331633258728e-07
+    },
+    {
+     "kind": "reloc",
+     "t": 1456.8270449638367,
+     "age": 148.1360001564026,
+     "resid": -0.1,
+     "decision": "accept",
+     "before_cutoff": false,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 4.938989387652566e-06,
+     "match_turn": -6.260470343022462e-06,
+     "match_dr": -1.8370823426329087e-07
+    },
+    {
+     "kind": "reloc",
+     "t": 1545.6950449943542,
+     "age": 105.6690001487732,
+     "resid": -0.3,
+     "decision": "accept",
+     "before_cutoff": false,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 2.9308004010552283e-06,
+     "match_turn": 2.8277562194034545e-06,
+     "match_dr": 1.1684175213846932e-07
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.24537774719416738,
+   "dr_median": 0.06033227887058241,
+   "filt_end": 3.2480903892177997,
+   "dr_end": 0.03248870914123164,
+   "end_from_home": 5.140696664361616
+  },
+  {
+   "block": 3,
+   "arm": "stkL5",
+   "seed": 29,
+   "bag": "a50_stkL5_seed29_20261124_125956",
+   "log": "orb_slam3_console_20261124_125947.log",
+   "complete_before_stop": null,
+   "t_return_home": 1083.5532920360565,
+   "t_collision": null,
+   "sonar_min": 3.807778835296631,
+   "sonar_min_t": 958.5597808361053,
+   "cutoff": 1083.5532920360565,
+   "t_complete": 1140.5532920360565,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1020.8945019245148,
+     "raw_step": 1.6224272072895272,
+     "resid": 0.07810673293883993,
+     "scale": 0.9523086199877462,
+     "chord": 1.5450514148044623,
+     "r_before": 16.990992120851953,
+     "dr": -0.034707393769225894,
+     "turn": -4.902984423295948,
+     "bearing_before": -177.9547546164807,
+     "bearing_after": 177.14226096022335,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -1.4
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1020.4964120388031,
+     "age": 936.018000125885,
+     "resid": -1.4,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.6759049994504037,
+     "match_turn": 1.8755865403559824,
+     "match_dr": 0.023162859992956277
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.13503332738503995,
+   "dr_median": 0.05529319920042863,
+   "filt_end": 4.6487273432173435,
+   "dr_end": 0.0490090684662324,
+   "end_from_home": 6.550328643681191
+  },
+  {
+   "block": 4,
+   "arm": "vetoL0",
+   "seed": 3,
+   "bag": "a50_vetoL0_seed3_20261124_133412",
+   "log": "orb_slam3_console_20261124_133358.log",
+   "complete_before_stop": null,
+   "t_return_home": 1087.8570809364319,
+   "t_collision": null,
+   "sonar_min": 3.9339563846588135,
+   "sonar_min_t": 964.0429148674011,
+   "cutoff": 1087.8570809364319,
+   "t_complete": 1141.8570809364319,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1022.4798319339752,
+     "raw_step": 0.5365301683156012,
+     "resid": 0.0852562275444838,
+     "scale": 0.9531211121081389,
+     "chord": 0.5113782307045327,
+     "r_before": 16.550831520296587,
+     "dr": -0.030883147812500112,
+     "turn": 0.0546794837080995,
+     "bearing_before": -177.38033293530307,
+     "bearing_after": -177.32565345159497,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.4
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 802.2332808971405,
+     "age": 640.6280000209808,
+     "resid": -90.1,
+     "decision": "veto",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "wrong-face",
+     "match_chord": 24.800438532120367,
+     "match_turn": 89.26962022912824,
+     "match_dr": 0.035574674732017066
+    },
+    {
+     "kind": "loop",
+     "t": 1022.1062808036804,
+     "age": 935.6019999980927,
+     "resid": -0.4,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.8759432326881179,
+     "match_turn": 2.704680172365812,
+     "match_dr": -0.02092691711604471
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.627457623787673,
+   "dr_median": 0.5320083482765683,
+   "filt_end": 3.4049335280793604,
+   "dr_end": 0.09003430768331858,
+   "end_from_home": 5.292934350089618
+  },
+  {
+   "block": 4,
+   "arm": "stkL5",
+   "seed": 3,
+   "bag": "a50_stkL5_seed3_20261124_164458",
+   "log": "orb_slam3_console_20261124_164434.log",
+   "complete_before_stop": null,
+   "t_return_home": 1105.4632279872894,
+   "t_collision": null,
+   "sonar_min": 4.128736972808838,
+   "sonar_min_t": 980.5514550209045,
+   "cutoff": 1105.4632279872894,
+   "t_complete": 1148.4632279872894,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1041.5000038146973,
+     "raw_step": 0.9623033780125583,
+     "resid": 0.08212582797999902,
+     "scale": 0.9627536886336128,
+     "chord": 0.9264611267661763,
+     "r_before": 17.166632296072244,
+     "dr": -0.023955473740827526,
+     "turn": -2.8049414808567974,
+     "bearing_before": -177.18550657901233,
+     "bearing_after": -179.99044805986912,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.5
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1041.0842020511627,
+     "age": 938.2690000534058,
+     "resid": -0.5,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.9682964669227667,
+     "match_turn": 3.2369660505320894,
+     "match_dr": 0.006530885493367901
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.5520432763927421,
+   "dr_median": 0.515993596179283,
+   "filt_end": 2.7105824695054483,
+   "dr_end": 0.11837175510260593,
+   "end_from_home": 4.606031778286308
+  },
+  {
+   "block": 4,
+   "arm": "stkL0",
+   "seed": 3,
+   "bag": "a50_stkL0_seed3_20261125_001434",
+   "log": "orb_slam3_console_20261125_001418.log",
+   "complete_before_stop": 5.6,
+   "t_return_home": 1092.0350098609924,
+   "t_collision": null,
+   "sonar_min": 3.9086930751800537,
+   "sonar_min_t": 967.6349949836731,
+   "cutoff": 1092.0350098609924,
+   "t_complete": 1143.5623848438263,
+   "t_complete_exact": 1137.9676442146301,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1026.4333279132843,
+     "raw_step": 0.34707680003804736,
+     "resid": 0.17739110643897085,
+     "scale": 0.9551746180515605,
+     "chord": 0.33151894991090036,
+     "r_before": 16.630665720040245,
+     "dr": -0.012548903714378255,
+     "turn": -0.8930624039505233,
+     "bearing_before": -177.60001690184333,
+     "bearing_after": -178.49307930579386,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.1
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1026.1669268608093,
+     "age": 873.1669998168945,
+     "resid": -0.1,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 1.1459835704267525,
+     "match_turn": 3.753276025321213,
+     "match_dr": -0.015718534345057697
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.5950829356510647,
+   "dr_median": 0.5336864952022801,
+   "filt_end": 3.2334279100888974,
+   "dr_end": 0.127332460678119,
+   "end_from_home": 5.124334571947527
+  },
+  {
+   "block": 5,
+   "arm": "stkL5",
+   "seed": 26,
+   "bag": "a50_stkL5_seed26_20261125_133032",
+   "log": "orb_slam3_console_20261125_133017.log",
+   "complete_before_stop": null,
+   "t_return_home": 1095.1100800037384,
+   "t_collision": null,
+   "sonar_min": 3.7739980220794678,
+   "sonar_min_t": 969.1426570415497,
+   "cutoff": 1095.1100800037384,
+   "t_complete": 1147.1100800037384,
+   "t_complete_exact": null,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1033.744364976883,
+     "raw_step": 1.6317196199407558,
+     "resid": 0.051654182227542346,
+     "scale": 0.9568792857921333,
+     "chord": 1.5613587045419208,
+     "r_before": 16.796498295122316,
+     "dr": -0.02476032114879566,
+     "turn": -5.20019705497964,
+     "bearing_before": -177.98139965336074,
+     "bearing_after": 176.8184032916596,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -1.7
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1033.3775238990784,
+     "age": 943.9519999027252,
+     "resid": -1.7,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.7778323262324562,
+     "match_turn": 2.2150355709511587,
+     "match_dr": 0.02689513989689651
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.8487383874211385,
+   "dr_median": 0.7717961617292346,
+   "filt_end": 4.730988985481246,
+   "dr_end": 0.09163179297390685,
+   "end_from_home": 6.525750271087869
+  },
+  {
+   "block": 5,
+   "arm": "stkL0",
+   "seed": 26,
+   "bag": "a50_stkL0_seed26_20261125_173339",
+   "log": "orb_slam3_console_20261125_173323.log",
+   "complete_before_stop": 4.7,
+   "t_return_home": 1080.3501000404358,
+   "t_collision": null,
+   "sonar_min": 3.703779935836792,
+   "sonar_min_t": 953.6883471012115,
+   "cutoff": 1080.3501000404358,
+   "t_complete": 1129.7489340305328,
+   "t_complete_exact": 1125.05455327034,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1019.6850221157074,
+     "raw_step": 0.3249832720983973,
+     "resid": 0.06571232967018806,
+     "scale": 0.9584531413728362,
+     "chord": 0.31148123803633293,
+     "r_before": 16.470900066522855,
+     "dr": -0.018338380278962035,
+     "turn": 0.2670766327459262,
+     "bearing_before": -179.3514054172256,
+     "bearing_after": -179.08432878447968,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       0.3
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1019.339644908905,
+     "age": 938.1689999103546,
+     "resid": 0.3,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.5207385335271946,
+     "match_turn": 1.7538137662730833,
+     "match_dr": 0.00800370988763771
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.8099032790081163,
+   "dr_median": 0.7579097016768738,
+   "filt_end": 2.831814887014289,
+   "dr_end": 0.09323848749881516,
+   "end_from_home": 4.72541571643331
+  },
+  {
+   "block": 5,
+   "arm": "vetoL0",
+   "seed": 26,
+   "bag": "a50_vetoL0_seed26_20261125_203844",
+   "log": "orb_slam3_console_20261125_203830.log",
+   "complete_before_stop": 27.1,
+   "t_return_home": 1090.70640707016,
+   "t_collision": null,
+   "sonar_min": 3.6402454376220703,
+   "sonar_min_t": 965.6729769706726,
+   "cutoff": 1090.70640707016,
+   "t_complete": 1145.70640707016,
+   "t_complete_exact": 1141.4914104938507,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1026.2620680332184,
+     "raw_step": 0.676844478245279,
+     "resid": 0.10800370008436531,
+     "scale": 0.9554104294898902,
+     "chord": 0.6466642736581836,
+     "r_before": 16.20139922903796,
+     "dr": -0.03893428016303621,
+     "turn": -0.5137089242141144,
+     "bearing_before": -178.1671225538291,
+     "bearing_after": -178.68083147804322,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       0.1
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1025.8866839408875,
+     "age": 871.8349997997284,
+     "resid": 0.1,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.6870161061066327,
+     "match_turn": 1.6582785708531844,
+     "match_dr": -0.028984540873286422
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.8634889871682625,
+   "dr_median": 0.7741772930548889,
+   "filt_end": 4.557426742225627,
+   "dr_end": 0.1166477645152888,
+   "end_from_home": 6.3450751989961915
+  },
+  {
+   "block": 6,
+   "arm": "stkL0",
+   "seed": 5,
+   "bag": "a50_stkL0_seed5_20261126_022436",
+   "log": "orb_slam3_console_20261126_022422.log",
+   "complete_before_stop": 126.8,
+   "t_return_home": 1072.6598880290985,
+   "t_collision": null,
+   "sonar_min": 3.6905407905578613,
+   "sonar_min_t": 950.219927072525,
+   "cutoff": 1072.6598880290985,
+   "t_complete": 1131.6598880290985,
+   "t_complete_exact": 1126.9618711471558,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1016.9484560489655,
+     "raw_step": 0.5163186524509604,
+     "resid": 0.11477304269699924,
+     "scale": 0.9606273368434501,
+     "chord": 0.49598981206656384,
+     "r_before": 17.09332012699308,
+     "dr": -0.01697744988387629,
+     "turn": 1.3598767001439,
+     "bearing_before": 178.7346802344508,
+     "bearing_after": -179.9054430654053,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.7
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1016.5406260490417,
+     "age": 936.385999917984,
+     "resid": -0.7,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.7634823749741391,
+     "match_turn": 0.2612881696993554,
+     "match_dr": 0.046570642865058944
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.5103621744581689,
+   "dr_median": 0.35543183286300234,
+   "filt_end": 4.281401602162824,
+   "dr_end": 0.06945130331841314,
+   "end_from_home": 6.188159218745787
+  },
+  {
+   "block": 6,
+   "arm": "vetoL0",
+   "seed": 5,
+   "bag": "a50_vetoL0_seed5_20261126_160632",
+   "log": "orb_slam3_console_20261126_160622.log",
+   "complete_before_stop": 26.2,
+   "t_return_home": 1085.1762290000916,
+   "t_collision": null,
+   "sonar_min": 3.5627334117889404,
+   "sonar_min_t": 961.6395480632782,
+   "cutoff": 1085.1762290000916,
+   "t_complete": 1136.1762290000916,
+   "t_complete_exact": 1131.7108933925629,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1019.3406431674957,
+     "raw_step": 0.6436601960792095,
+     "resid": 0.1644370324221135,
+     "scale": 0.9538365706778326,
+     "chord": 0.6139466341100149,
+     "r_before": 16.463298131706974,
+     "dr": -0.03492193042501595,
+     "turn": 0.7629924730546804,
+     "bearing_before": -177.16971237805856,
+     "bearing_after": -176.40671990500388,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.1
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1018.939337015152,
+     "age": 866.7839999198914,
+     "resid": -0.1,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.858958553413397,
+     "match_turn": 2.623902363347497,
+     "match_dr": -0.022357974548025652
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.4974921545707739,
+   "dr_median": 0.3786870937384467,
+   "filt_end": 3.0879962172699162,
+   "dr_end": 0.06426207037552428,
+   "end_from_home": 5.000555098709505
+  },
+  {
+   "block": 6,
+   "arm": "stkL5",
+   "seed": 5,
+   "bag": "a50_stkL5_seed5_20261126_170231",
+   "log": "orb_slam3_console_20261126_170218.log",
+   "complete_before_stop": 4.0,
+   "t_return_home": 1080.8591258525848,
+   "t_collision": null,
+   "sonar_min": 3.8600120544433594,
+   "sonar_min_t": 958.143739938736,
+   "cutoff": 1080.8591258525848,
+   "t_complete": 1134.390233039856,
+   "t_complete_exact": 1130.3953490257263,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1018.117467880249,
+     "raw_step": 1.0427042548662102,
+     "resid": 0.11698979001680293,
+     "scale": 0.9584656407103448,
+     "chord": 0.999396201711744,
+     "r_before": 17.04825060269625,
+     "dr": -0.02686055544709544,
+     "turn": -3.0267111347975515,
+     "bearing_before": -177.49555286231902,
+     "bearing_after": 179.4777360028834,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.2
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1017.7751178741455,
+     "age": 931.9189999103546,
+     "resid": -0.2,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.7138332048560919,
+     "match_turn": 2.1880669695668757,
+     "match_dr": 0.01929283794413033
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.34344228290376494,
+   "dr_median": 0.35247100435035256,
+   "filt_end": 4.750349931528225,
+   "dr_end": 0.07005831864353243,
+   "end_from_home": 6.554332724501611
+  },
+  {
+   "block": 7,
+   "arm": "vetoL0",
+   "seed": 7,
+   "bag": "a50_vetoL0_seed7_20261127_000907",
+   "log": "orb_slam3_console_20261127_000853.log",
+   "complete_before_stop": 63.5,
+   "t_return_home": 1084.609279870987,
+   "t_collision": null,
+   "sonar_min": 3.7333784103393555,
+   "sonar_min_t": 492.9604308605194,
+   "cutoff": 1084.609279870987,
+   "t_complete": 1140.609279870987,
+   "t_complete_exact": 1135.9398608207703,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1019.8912129402161,
+     "raw_step": 1.078885880533567,
+     "resid": 0.13740881189637777,
+     "scale": 0.9459039172703533,
+     "chord": 1.0205223806843753,
+     "r_before": 16.58672023028233,
+     "dr": -0.031208233845408356,
+     "turn": 3.086974724445952,
+     "bearing_before": -178.4537489199941,
+     "bearing_after": -175.36677419554815,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.4
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1019.5116369724274,
+     "age": 861.3329999446869,
+     "resid": -0.4,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.9624935887597015,
+     "match_turn": 3.140059407108538,
+     "match_dr": -0.01466901799671496
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.4029813425014425,
+   "dr_median": 0.28807722499837857,
+   "filt_end": 3.4989197215207404,
+   "dr_end": 0.03260120830496737,
+   "end_from_home": 5.395473470497011
+  },
+  {
+   "block": 7,
+   "arm": "stkL5",
+   "seed": 7,
+   "bag": "a50_stkL5_seed7_20261127_004122",
+   "log": "orb_slam3_console_20261127_004108.log",
+   "complete_before_stop": 48.1,
+   "t_return_home": 1087.1185548305511,
+   "t_collision": null,
+   "sonar_min": 3.5851452350616455,
+   "sonar_min_t": 489.11837792396545,
+   "cutoff": 1087.1185548305511,
+   "t_complete": 1141.1185548305511,
+   "t_complete_exact": 1136.2887706756592,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1027.4709799289703,
+     "raw_step": 2.1517229181515116,
+     "resid": 0.05302525281120155,
+     "scale": 0.9530225774865231,
+     "chord": 2.0506405214935763,
+     "r_before": 17.17717013107586,
+     "dr": -0.025482270412568262,
+     "turn": -6.7731782335574735,
+     "bearing_before": -178.30475651948575,
+     "bearing_after": 174.92206524695683,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -1.6
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1027.1336870193481,
+     "age": 943.9690001010895,
+     "resid": -1.6,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.6614431477935633,
+     "match_turn": 1.8854266333088958,
+     "match_dr": 0.02126299817758102
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.3646005736958291,
+   "dr_median": 0.2946934182850779,
+   "filt_end": 4.155589875015842,
+   "dr_end": 0.014947779527429409,
+   "end_from_home": 6.025854632534849
+  },
+  {
+   "block": 7,
+   "arm": "stkL0",
+   "seed": 7,
+   "bag": "a50_stkL0_seed7_20261127_010854",
+   "log": "orb_slam3_console_20261127_010840.log",
+   "complete_before_stop": 141.6,
+   "t_return_home": 1085.6898069381714,
+   "t_collision": null,
+   "sonar_min": 3.7467689514160156,
+   "sonar_min_t": 491.39642786979675,
+   "cutoff": 1085.6898069381714,
+   "t_complete": 1138.6898069381714,
+   "t_complete_exact": 1133.993251800537,
+   "n_loop_lines": 1,
+   "n_merge_lines": 0,
+   "n_reloc_accepted": 0,
+   "n_relocalized_lines": 0,
+   "events": [
+    {
+     "t": 1021.0078518390656,
+     "raw_step": 0.288762245034315,
+     "resid": 0.15312782954852966,
+     "scale": 0.9516398317417699,
+     "chord": 0.2747976542778314,
+     "r_before": 16.563015575543357,
+     "dr": -0.01253274030819299,
+     "turn": 0.62684386215426,
+     "bearing_before": -177.89255062660294,
+     "bearing_after": -177.26570676444868,
+     "cls": "benign",
+     "kind": "loop",
+     "decision": [
+      [
+       "accept",
+       -0.5
+      ]
+     ],
+     "before_cutoff": true,
+     "near_cutoff": false
+    }
+   ],
+   "decisions": [
+    {
+     "kind": "loop",
+     "t": 1020.6315488815308,
+     "age": 929.9679999351501,
+     "resid": -0.5,
+     "decision": "accept",
+     "before_cutoff": true,
+     "in_bag": true,
+     "match_cls": "same-place",
+     "match_chord": 0.6966647900282792,
+     "match_turn": 2.2577591943015136,
+     "match_dr": -0.011562034383381317
+    }
+   ],
+   "hit_strict": false,
+   "hit_loose": false,
+   "filt_median": 0.3955646609361362,
+   "dr_median": 0.2805251396127928,
+   "filt_end": 2.899812878063697,
+   "dr_end": 0.0396518405543534,
+   "end_from_home": 4.787802740390735
+  }
+ ],
+ "tests": {
+  "strict": [
+   {
+    "test": "Q1",
+    "a": "stkL0",
+    "b": "vetoL0",
+    "a_hit": 2,
+    "a_n": 8,
+    "b_hit": 0,
+    "b_n": 8,
+    "p": 0.23333333333333334,
+    "p_holm": 0.4666666666666667
+   },
+   {
+    "test": "Q2",
+    "a": "stkL0",
+    "b": "stkL5",
+    "a_hit": 2,
+    "a_n": 8,
+    "b_hit": 0,
+    "b_n": 8,
+    "p": 0.23333333333333334,
+    "p_holm": 0.4666666666666667
+   }
+  ],
+  "loose": [
+   {
+    "test": "Q1",
+    "a": "stkL0",
+    "b": "vetoL0",
+    "a_hit": 3,
+    "a_n": 8,
+    "b_hit": 0,
+    "b_n": 8,
+    "p": 0.1,
+    "p_holm": 0.2
+   },
+   {
+    "test": "Q2",
+    "a": "stkL0",
+    "b": "stkL5",
+    "a_hit": 3,
+    "a_n": 8,
+    "b_hit": 0,
+    "b_n": 8,
+    "p": 0.1,
+    "p_holm": 0.2
+   }
+  ]
+ }
+}
