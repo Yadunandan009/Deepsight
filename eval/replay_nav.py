@@ -153,6 +153,12 @@ class Gyro:
 
 
 # ------------------------------------------------------------------ passes
+def _sigint_default():
+    # a background job (`cmd &` from a non-interactive shell) inherits SIGINT
+    # ignored; ros2 bag record then never closes its bag on SIGINT
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+
 def env():
     e = dict(os.environ, ROS_DOMAIN_ID=DOMAIN, ROS_AUTOMATIC_DISCOVERY_RANGE="LOCALHOST")
     return e
@@ -164,15 +170,15 @@ def run_filter(inp, out, cfg, node, remap_to):
     procs = [
         subprocess.Popen(["ros2", "run", "tf2_ros", "static_transform_publisher", "--frame-id",
                           "bluerov2/base_link", "--child-frame-id", "bluerov2/imu_filter"],
-                         env=E, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True),
+                         env=E, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, preexec_fn=_sigint_default),
         subprocess.Popen(["ros2", "run", "robot_localization", "ekf_node", "--ros-args",
                           "-r", f"__node:={node}", "--params-file", cfg, "-p", "use_sim_time:=true",
                           "-r", f"odometry/filtered:={remap_to}"],
-                         env=E, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True),
+                         env=E, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True, preexec_fn=_sigint_default),
     ]
     time.sleep(3.0)
     rec = subprocess.Popen(["ros2", "bag", "record", "-s", "mcap", "-o", out, remap_to],
-                           env=E, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                           env=E, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, preexec_fn=_sigint_default)
     time.sleep(3.0)
     subprocess.run(["ros2", "bag", "play", inp, "-r", str(RATE), "--clock-topics-all",
                     "--disable-keyboard-controls"], env=E, check=True,

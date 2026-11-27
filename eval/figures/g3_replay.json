@@ -1,0 +1,1042 @@
+{
+ "flights": [
+  {
+   "arm": "stkL0",
+   "seed": 0,
+   "bag": "a50_stkL0_seed0_20261117_131341",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 4.5262879593621586,
+    "scale": -0.0013210486329130189
+   },
+   "dr_median": 0.28185360248764035,
+   "fused_median": 0.3263486563669766,
+   "dr_end": 0.6600398308319185,
+   "fused_end": 2.266183130685551
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 0,
+   "bag": "a50_vetoL0_seed0_20261117_134842",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 4.5262879593621586,
+    "scale": -0.0013210486329130189
+   },
+   "dr_median": 0.2528418246125306,
+   "fused_median": 0.6618460866536249,
+   "dr_end": 0.7189604869541801,
+   "fused_end": 3.046835683787959
+  },
+  {
+   "arm": "stkL5",
+   "seed": 0,
+   "bag": "a50_stkL5_seed0_20261117_174745",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 4.5262879593621586,
+    "scale": -0.0013210486329130189
+   },
+   "dr_median": 0.26334345333573767,
+   "fused_median": 0.2701475281842113,
+   "dr_end": 0.7170486290844383,
+   "fused_end": 4.147341174997088
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 1,
+   "bag": "a50_vetoL0_seed1_20261119_151429",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 12.441030914332297,
+    "scale": 0.008216181435011584
+   },
+   "dr_median": 0.23752461818413714,
+   "fused_median": 0.35474606241350526,
+   "dr_end": 0.06677176956837039,
+   "fused_end": 2.9269922400525945
+  },
+  {
+   "arm": "stkL5",
+   "seed": 1,
+   "bag": "a50_stkL5_seed1_20261119_172622",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 12.441030914332297,
+    "scale": 0.008216181435011584
+   },
+   "dr_median": 0.23434524075020027,
+   "fused_median": 0.4131260941632411,
+   "dr_end": 0.2262455620596538,
+   "fused_end": 4.622997593134955
+  },
+  {
+   "arm": "stkL0",
+   "seed": 1,
+   "bag": "a50_stkL0_seed1_20261119_212200",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 12.441030914332297,
+    "scale": 0.008216181435011584
+   },
+   "dr_median": 0.22582377818692428,
+   "fused_median": 0.2731793859354199,
+   "dr_end": 0.15215559255121391,
+   "fused_end": 0.9144745927402637
+  },
+  {
+   "arm": "stkL5",
+   "seed": 2,
+   "bag": "a50_stkL5_seed2_20261120_010207",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 6.80592174456719,
+    "scale": -0.005227484414807474
+   },
+   "dr_median": 0.4751295081090797,
+   "fused_median": 0.47835988886181807,
+   "dr_end": 1.0861384510529781,
+   "fused_end": 1.7169778960652309
+  },
+  {
+   "arm": "stkL0",
+   "seed": 2,
+   "bag": "a50_stkL0_seed2_20261120_134734",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 6.80592174456719,
+    "scale": -0.005227484414807474
+   },
+   "dr_median": 0.48211918800794173,
+   "fused_median": 0.5078775359909002,
+   "dr_end": 1.3067012403129283,
+   "fused_end": 0.9873732479730902
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 2,
+   "bag": "a50_vetoL0_seed2_20261121_005903",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 6.80592174456719,
+    "scale": -0.005227484414807474
+   },
+   "dr_median": 0.4886976298031998,
+   "fused_median": 0.481545427352427,
+   "dr_end": 1.439768141386636,
+   "fused_end": 2.0830285261374026
+  },
+  {
+   "arm": "stkL0",
+   "seed": 29,
+   "bag": "a50_stkL0_seed29_20261121_013920",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -14.107314309379843,
+    "scale": 0.0004992040152334534
+   },
+   "dr_median": 0.8660204832756384,
+   "fused_median": 3.4990386191898537,
+   "dr_end": 1.8035655389607435,
+   "fused_end": 4.503176927963152
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 29,
+   "bag": "a50_vetoL0_seed29_20261123_203758",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -14.107314309379843,
+    "scale": 0.0004992040152334534
+   },
+   "dr_median": 0.8524720596413371,
+   "fused_median": 0.7483958749065266,
+   "dr_end": 1.5897421112790482,
+   "fused_end": 4.368678079398389
+  },
+  {
+   "arm": "stkL5",
+   "seed": 29,
+   "bag": "a50_stkL5_seed29_20261124_125956",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -14.107314309379843,
+    "scale": 0.0004992040152334534
+   },
+   "dr_median": 0.8536595535820628,
+   "fused_median": 0.7895406204580112,
+   "dr_end": 1.7440296707664942,
+   "fused_end": 5.774072541062428
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 3,
+   "bag": "a50_vetoL0_seed3_20261124_133412",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 73.47308836986657,
+    "scale": -0.025556650313141818
+   },
+   "dr_median": 6.52659141114413,
+   "fused_median": 6.41557609609195,
+   "dr_end": 12.50055954543436,
+   "fused_end": 9.893304936590793
+  },
+  {
+   "arm": "stkL5",
+   "seed": 3,
+   "bag": "a50_stkL5_seed3_20261124_164458",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 73.47308836986657,
+    "scale": -0.025556650313141818
+   },
+   "dr_median": 6.55427703662647,
+   "fused_median": 6.448464774515386,
+   "dr_end": 12.778131717998853,
+   "fused_end": 12.914221526736009
+  },
+  {
+   "arm": "stkL0",
+   "seed": 3,
+   "bag": "a50_stkL0_seed3_20261125_001434",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 73.47308836986657,
+    "scale": -0.025556650313141818
+   },
+   "dr_median": 6.537187076737708,
+   "fused_median": 6.293016678980294,
+   "dr_end": 12.742725512098152,
+   "fused_end": 10.36492094697853
+  },
+  {
+   "arm": "stkL5",
+   "seed": 26,
+   "bag": "a50_stkL5_seed26_20261125_133032",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -69.30232193173704,
+    "scale": -0.030187952306120033
+   },
+   "dr_median": 2.4126048572120804,
+   "fused_median": 2.451249618337463,
+   "dr_end": 3.2475003756329737,
+   "fused_end": 7.0327047276498975
+  },
+  {
+   "arm": "stkL0",
+   "seed": 26,
+   "bag": "a50_stkL0_seed26_20261125_173339",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -69.30232193173704,
+    "scale": -0.030187952306120033
+   },
+   "dr_median": 2.3283872055547032,
+   "fused_median": 2.1610919185992583,
+   "dr_end": 2.8998040236282208,
+   "fused_end": 4.863922387358082
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 26,
+   "bag": "a50_vetoL0_seed26_20261125_203844",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -69.30232193173704,
+    "scale": -0.030187952306120033
+   },
+   "dr_median": 2.434572993349125,
+   "fused_median": 2.2353282815685462,
+   "dr_end": 3.1629032994922173,
+   "fused_end": 6.9317395117113145
+  },
+  {
+   "arm": "stkL0",
+   "seed": 5,
+   "bag": "a50_stkL0_seed5_20261126_022436",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -28.869531309124106,
+    "scale": -0.01324358995628145
+   },
+   "dr_median": 0.9550406225659946,
+   "fused_median": 1.0179581898089463,
+   "dr_end": 1.1344255531507463,
+   "fused_end": 5.095516258960682
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 5,
+   "bag": "a50_vetoL0_seed5_20261126_160632",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -28.869531309124106,
+    "scale": -0.01324358995628145
+   },
+   "dr_median": 1.011332297766208,
+   "fused_median": 1.039389817567885,
+   "dr_end": 1.1844477360916947,
+   "fused_end": 3.794389943589615
+  },
+  {
+   "arm": "stkL5",
+   "seed": 5,
+   "bag": "a50_stkL5_seed5_20261126_170231",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": -28.869531309124106,
+    "scale": -0.01324358995628145
+   },
+   "dr_median": 0.953426012984627,
+   "fused_median": 1.0002795385531642,
+   "dr_end": 1.191928286361895,
+   "fused_end": 5.525606052579662
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 7,
+   "bag": "a50_vetoL0_seed7_20261127_000907",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 0.04428552086937267,
+    "scale": 0.002987455375084699
+   },
+   "dr_median": 0.2263293807316642,
+   "fused_median": 0.32648861388708517,
+   "dr_end": 0.3964439471844985,
+   "fused_end": 3.6111824581849374
+  },
+  {
+   "arm": "stkL5",
+   "seed": 7,
+   "bag": "a50_stkL5_seed7_20261127_004122",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 0.04428552086937267,
+    "scale": 0.002987455375084699
+   },
+   "dr_median": 0.2451837844603902,
+   "fused_median": 0.24208370722990102,
+   "dr_end": 0.4282590873028666,
+   "fused_end": 4.35936799414761
+  },
+  {
+   "arm": "stkL0",
+   "seed": 7,
+   "bag": "a50_stkL0_seed7_20261127_010854",
+   "grade": "MEMS, bias cal. in water (dT 1 C)",
+   "gyro": {
+    "bias_dph": 0.04428552086937267,
+    "scale": 0.002987455375084699
+   },
+   "dr_median": 0.22682279686879092,
+   "fused_median": 0.3393599333196351,
+   "dr_end": 0.3941908071650189,
+   "fused_end": 3.0708646559872026
+  },
+  {
+   "arm": "stkL0",
+   "seed": 0,
+   "bag": "a50_stkL0_seed0_20261117_131341",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.10058417687471465,
+    "scale": -0.00013210486329130188
+   },
+   "dr_median": 0.06705672576672386,
+   "fused_median": 0.17659645487833164,
+   "dr_end": 0.047374448096991824,
+   "fused_end": 2.532051572387479
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 0,
+   "bag": "a50_vetoL0_seed0_20261117_134842",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.10058417687471465,
+    "scale": -0.00013210486329130188
+   },
+   "dr_median": 0.08428430068559836,
+   "fused_median": 0.6144380792787287,
+   "dr_end": 0.021695713980456312,
+   "fused_end": 2.93204224543423
+  },
+  {
+   "arm": "stkL5",
+   "seed": 0,
+   "bag": "a50_stkL5_seed0_20261117_174745",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.10058417687471465,
+    "scale": -0.00013210486329130188
+   },
+   "dr_median": 0.07204734153597703,
+   "fused_median": 0.25830687648276673,
+   "dr_end": 0.013238181381588436,
+   "fused_end": 4.525212585883363
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 1,
+   "bag": "a50_vetoL0_seed1_20261119_151429",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.27646735365182884,
+    "scale": 0.0008216181435011584
+   },
+   "dr_median": 0.18596635041837908,
+   "fused_median": 0.3554958422081631,
+   "dr_end": 0.14326611841431952,
+   "fused_end": 3.0251249475250006
+  },
+  {
+   "arm": "stkL5",
+   "seed": 1,
+   "bag": "a50_stkL5_seed1_20261119_172622",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.27646735365182884,
+    "scale": 0.0008216181435011584
+   },
+   "dr_median": 0.1857588554218318,
+   "fused_median": 0.4028844981057745,
+   "dr_end": 0.24595638378806056,
+   "fused_end": 4.644843200885671
+  },
+  {
+   "arm": "stkL0",
+   "seed": 1,
+   "bag": "a50_stkL0_seed1_20261119_212200",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.27646735365182884,
+    "scale": 0.0008216181435011584
+   },
+   "dr_median": 0.17324978700784732,
+   "fused_median": 0.23272810259930038,
+   "dr_end": 0.10525113488738655,
+   "fused_end": 0.7830379425037719
+  },
+  {
+   "arm": "stkL5",
+   "seed": 2,
+   "bag": "a50_stkL5_seed2_20261120_010207",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.15124270543482646,
+    "scale": -0.0005227484414807474
+   },
+   "dr_median": 0.29844992613464516,
+   "fused_median": 0.3153382399075851,
+   "dr_end": 0.09124716355505078,
+   "fused_end": 0.9101452953769409
+  },
+  {
+   "arm": "stkL0",
+   "seed": 2,
+   "bag": "a50_stkL0_seed2_20261120_134734",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.15124270543482646,
+    "scale": -0.0005227484414807474
+   },
+   "dr_median": 0.3182721188157066,
+   "fused_median": 0.3653002498624853,
+   "dr_end": 0.09730712415191112,
+   "fused_end": 0.4115715192014829
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 2,
+   "bag": "a50_vetoL0_seed2_20261121_005903",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.15124270543482646,
+    "scale": -0.0005227484414807474
+   },
+   "dr_median": 0.3047401710042777,
+   "fused_median": 0.3256627030329295,
+   "dr_end": 0.1042299080579274,
+   "fused_end": 2.6308398759264007
+  },
+  {
+   "arm": "stkL0",
+   "seed": 29,
+   "bag": "a50_stkL0_seed29_20261121_013920",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -0.31349587354177433,
+    "scale": 4.9920401523345344e-05
+   },
+   "dr_median": 0.06243903904884519,
+   "fused_median": 3.8337839528003443,
+   "dr_end": 0.041676169292723914,
+   "fused_end": 4.580183852985991
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 29,
+   "bag": "a50_vetoL0_seed29_20261123_203758",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -0.31349587354177433,
+    "scale": 4.9920401523345344e-05
+   },
+   "dr_median": 0.06500194878008707,
+   "fused_median": 0.2503619794904678,
+   "dr_end": 0.06625365134791258,
+   "fused_end": 3.272037187012625
+  },
+  {
+   "arm": "stkL5",
+   "seed": 29,
+   "bag": "a50_stkL5_seed29_20261124_125956",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -0.31349587354177433,
+    "scale": 4.9920401523345344e-05
+   },
+   "dr_median": 0.07223283681627125,
+   "fused_median": 0.13378209556711892,
+   "dr_end": 0.08859079895866674,
+   "fused_end": 4.669027369997736
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 3,
+   "bag": "a50_vetoL0_seed3_20261124_133412",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 1.632735297108146,
+    "scale": -0.0025556650313141816
+   },
+   "dr_median": 0.48577473470660276,
+   "fused_median": 0.5406196303869255,
+   "dr_end": 0.6335914543116133,
+   "fused_end": 3.0039671767867655
+  },
+  {
+   "arm": "stkL5",
+   "seed": 3,
+   "bag": "a50_stkL5_seed3_20261124_164458",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 1.632735297108146,
+    "scale": -0.0025556650313141816
+   },
+   "dr_median": 0.4703326202108199,
+   "fused_median": 0.5218043883699628,
+   "dr_end": 0.6549813456440198,
+   "fused_end": 2.5516262061459978
+  },
+  {
+   "arm": "stkL0",
+   "seed": 3,
+   "bag": "a50_stkL0_seed3_20261125_001434",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 1.632735297108146,
+    "scale": -0.0025556650313141816
+   },
+   "dr_median": 0.4839399042682363,
+   "fused_median": 0.5146509174424891,
+   "dr_end": 0.6825698734438671,
+   "fused_end": 2.931738376364492
+  },
+  {
+   "arm": "stkL5",
+   "seed": 26,
+   "bag": "a50_stkL5_seed26_20261125_133032",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -1.5400515984830458,
+    "scale": -0.0030187952306120034
+   },
+   "dr_median": 0.6431355838867103,
+   "fused_median": 0.7870549791401629,
+   "dr_end": 0.3572757724906814,
+   "fused_end": 4.555628795205216
+  },
+  {
+   "arm": "stkL0",
+   "seed": 26,
+   "bag": "a50_stkL0_seed26_20261125_173339",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -1.5400515984830458,
+    "scale": -0.0030187952306120034
+   },
+   "dr_median": 0.6339569651988604,
+   "fused_median": 0.7845338106399563,
+   "dr_end": 0.35924692363322375,
+   "fused_end": 2.6925179419944474
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 26,
+   "bag": "a50_vetoL0_seed26_20261125_203844",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -1.5400515984830458,
+    "scale": -0.0030187952306120034
+   },
+   "dr_median": 0.6533887433314411,
+   "fused_median": 0.7665026799307205,
+   "dr_end": 0.29871925985563363,
+   "fused_end": 4.237921863823466
+  },
+  {
+   "arm": "stkL0",
+   "seed": 5,
+   "bag": "a50_stkL0_seed5_20261126_022436",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -0.641545140202758,
+    "scale": -0.001324358995628145
+   },
+   "dr_median": 0.3088245283375336,
+   "fused_median": 0.4000745235813753,
+   "dr_end": 0.12219201111224748,
+   "fused_end": 4.196996024164021
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 5,
+   "bag": "a50_vetoL0_seed5_20261126_160632",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -0.641545140202758,
+    "scale": -0.001324358995628145
+   },
+   "dr_median": 0.32927586122033287,
+   "fused_median": 0.46558034233465506,
+   "dr_end": 0.08895811886671567,
+   "fused_end": 2.9719641265728556
+  },
+  {
+   "arm": "stkL5",
+   "seed": 5,
+   "bag": "a50_stkL5_seed5_20261126_170231",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": -0.641545140202758,
+    "scale": -0.001324358995628145
+   },
+   "dr_median": 0.3002547101472342,
+   "fused_median": 0.32018462583980545,
+   "dr_end": 0.16022278478748087,
+   "fused_end": 4.618174013843928
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 7,
+   "bag": "a50_vetoL0_seed7_20261127_000907",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.0009841226859860594,
+    "scale": 0.00029874553750846986
+   },
+   "dr_median": 0.2707014979192585,
+   "fused_median": 0.3852023580178077,
+   "dr_end": 0.03244435050768307,
+   "fused_end": 3.374988953670104
+  },
+  {
+   "arm": "stkL5",
+   "seed": 7,
+   "bag": "a50_stkL5_seed7_20261127_004122",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.0009841226859860594,
+    "scale": 0.00029874553750846986
+   },
+   "dr_median": 0.2718900366374238,
+   "fused_median": 0.34226947428566645,
+   "dr_end": 0.0339297411590529,
+   "fused_end": 4.113323263112732
+  },
+  {
+   "arm": "stkL0",
+   "seed": 7,
+   "bag": "a50_stkL0_seed7_20261127_010854",
+   "grade": "tactical MEMS (ADIS16495-class)",
+   "gyro": {
+    "bias_dph": 0.0009841226859860594,
+    "scale": 0.00029874553750846986
+   },
+   "dr_median": 0.270380719714487,
+   "fused_median": 0.3921731687233472,
+   "dr_end": 0.0473221236925926,
+   "fused_end": 2.852104910096495
+  },
+  {
+   "arm": "stkL0",
+   "seed": 0,
+   "bag": "a50_stkL0_seed0_20261117_131341",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 45.26287959362158,
+    "scale": -0.0013210486329130189
+   },
+   "dr_median": 3.069122724073716,
+   "fused_median": 2.9306212309370436,
+   "dr_end": 5.142273928637622,
+   "fused_end": 4.189429989270625
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 0,
+   "bag": "a50_vetoL0_seed0_20261117_134842",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 45.26287959362158,
+    "scale": -0.0013210486329130189
+   },
+   "dr_median": 3.1120879930177985,
+   "fused_median": 2.914472232557351,
+   "dr_end": 5.481022032258346,
+   "fused_end": 6.065385618936392
+  },
+  {
+   "arm": "stkL5",
+   "seed": 0,
+   "bag": "a50_stkL5_seed0_20261117_174745",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 45.26287959362158,
+    "scale": -0.0013210486329130189
+   },
+   "dr_median": 2.9564243196121027,
+   "fused_median": 2.7434909196136776,
+   "dr_end": 5.5780258074821285,
+   "fused_end": 4.258957712275087
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 1,
+   "bag": "a50_vetoL0_seed1_20261119_151429",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 124.41030914332295,
+    "scale": 0.008216181435011584
+   },
+   "dr_median": 7.789033955983941,
+   "fused_median": 7.630862822061006,
+   "dr_end": 12.383231783848915,
+   "fused_end": 10.29812491539907
+  },
+  {
+   "arm": "stkL5",
+   "seed": 1,
+   "bag": "a50_stkL5_seed1_20261119_172622",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 124.41030914332295,
+    "scale": 0.008216181435011584
+   },
+   "dr_median": 7.6375869393964555,
+   "fused_median": 6.706456132102621,
+   "dr_end": 13.497385226972368,
+   "fused_end": 14.17526607262376
+  },
+  {
+   "arm": "stkL0",
+   "seed": 1,
+   "bag": "a50_stkL0_seed1_20261119_212200",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 124.41030914332295,
+    "scale": 0.008216181435011584
+   },
+   "dr_median": 7.844849907818018,
+   "fused_median": 7.644715183541145,
+   "dr_end": 11.713243489179636,
+   "fused_end": 12.217357826149804
+  },
+  {
+   "arm": "stkL5",
+   "seed": 2,
+   "bag": "a50_stkL5_seed2_20261120_010207",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 68.0592174456719,
+    "scale": -0.005227484414807474
+   },
+   "dr_median": 4.609046394909475,
+   "fused_median": 4.448291835121351,
+   "dr_end": 5.9224014401385885,
+   "fused_end": 6.598626571571212
+  },
+  {
+   "arm": "stkL0",
+   "seed": 2,
+   "bag": "a50_stkL0_seed2_20261120_134734",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 68.0592174456719,
+    "scale": -0.005227484414807474
+   },
+   "dr_median": 4.578980082407218,
+   "fused_median": 4.53208725607119,
+   "dr_end": 7.522954871230256,
+   "fused_end": 7.081506638019737
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 2,
+   "bag": "a50_vetoL0_seed2_20261121_005903",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 68.0592174456719,
+    "scale": -0.005227484414807474
+   },
+   "dr_median": 4.567007212975453,
+   "fused_median": 4.457625274005775,
+   "dr_end": 8.193655382312272,
+   "fused_end": 6.445061941985148
+  },
+  {
+   "arm": "stkL0",
+   "seed": 29,
+   "bag": "a50_stkL0_seed29_20261121_013920",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -141.0731430937984,
+    "scale": 0.0004992040152334534
+   },
+   "dr_median": 8.384619861611167,
+   "fused_median": 7.845348207008181,
+   "dr_end": 16.513808750336736,
+   "fused_end": 14.693760167042752
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 29,
+   "bag": "a50_vetoL0_seed29_20261123_203758",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -141.0731430937984,
+    "scale": 0.0004992040152334534
+   },
+   "dr_median": 8.896819663703065,
+   "fused_median": 8.799142522825818,
+   "dr_end": 14.146226061023329,
+   "fused_end": 15.464827714943382
+  },
+  {
+   "arm": "stkL5",
+   "seed": 29,
+   "bag": "a50_stkL5_seed29_20261124_125956",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -141.0731430937984,
+    "scale": 0.0004992040152334534
+   },
+   "dr_median": 8.779736082031706,
+   "fused_median": 8.791751095516332,
+   "dr_end": 15.38497118224158,
+   "fused_end": 17.19895424378349
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 3,
+   "bag": "a50_vetoL0_seed3_20261124_133412",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 734.7308836986657,
+    "scale": -0.025556650313141818
+   },
+   "dr_median": 54.23566023553775,
+   "fused_median": 53.88195534431196,
+   "dr_end": 84.9176643948043,
+   "fused_end": 83.65070015054928
+  },
+  {
+   "arm": "stkL5",
+   "seed": 3,
+   "bag": "a50_stkL5_seed3_20261124_164458",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 734.7308836986657,
+    "scale": -0.025556650313141818
+   },
+   "dr_median": 54.6987958921553,
+   "fused_median": 54.16444858792148,
+   "dr_end": 85.69545292758478,
+   "fused_end": 83.69013377247293
+  },
+  {
+   "arm": "stkL0",
+   "seed": 3,
+   "bag": "a50_stkL0_seed3_20261125_001434",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 734.7308836986657,
+    "scale": -0.025556650313141818
+   },
+   "dr_median": 54.679940148670255,
+   "fused_median": 54.19728401021313,
+   "dr_end": 85.82603965519405,
+   "fused_end": 84.17237869009135
+  },
+  {
+   "arm": "stkL5",
+   "seed": 26,
+   "bag": "a50_stkL5_seed26_20261125_133032",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -693.0232193173705,
+    "scale": -0.030187952306120033
+   },
+   "dr_median": 23.152090237798525,
+   "fused_median": 23.55391496449539,
+   "dr_end": 41.27463069545659,
+   "fused_end": 37.61208024276658
+  },
+  {
+   "arm": "stkL0",
+   "seed": 26,
+   "bag": "a50_stkL0_seed26_20261125_173339",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -693.0232193173705,
+    "scale": -0.030187952306120033
+   },
+   "dr_median": 23.433731158509893,
+   "fused_median": 23.79599249940204,
+   "dr_end": 38.763069559704135,
+   "fused_end": 36.826557519504995
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 26,
+   "bag": "a50_vetoL0_seed26_20261125_203844",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -693.0232193173705,
+    "scale": -0.030187952306120033
+   },
+   "dr_median": 23.64094952375879,
+   "fused_median": 23.526440320984687,
+   "dr_end": 39.9536473850914,
+   "fused_end": 36.6984624611839
+  },
+  {
+   "arm": "stkL0",
+   "seed": 5,
+   "bag": "a50_stkL0_seed5_20261126_022436",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -288.6953130912411,
+    "scale": -0.01324358995628145
+   },
+   "dr_median": 15.48200789465534,
+   "fused_median": 15.667330106572464,
+   "dr_end": 25.13736123991308,
+   "fused_end": 25.88186684646679
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 5,
+   "bag": "a50_vetoL0_seed5_20261126_160632",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -288.6953130912411,
+    "scale": -0.01324358995628145
+   },
+   "dr_median": 15.564464630542274,
+   "fused_median": 15.812472199591383,
+   "dr_end": 24.95960866636857,
+   "fused_end": 25.069741007567448
+  },
+  {
+   "arm": "stkL5",
+   "seed": 5,
+   "bag": "a50_stkL5_seed5_20261126_170231",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": -288.6953130912411,
+    "scale": -0.01324358995628145
+   },
+   "dr_median": 15.512765372692519,
+   "fused_median": 15.752601989082688,
+   "dr_end": 26.64152779354035,
+   "fused_end": 27.100729163575867
+  },
+  {
+   "arm": "vetoL0",
+   "seed": 7,
+   "bag": "a50_vetoL0_seed7_20261127_000907",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 0.44285520869372674,
+    "scale": 0.002987455375084699
+   },
+   "dr_median": 0.23483229844090878,
+   "fused_median": 0.3359956814932612,
+   "dr_end": 0.35410360679716346,
+   "fused_end": 3.583650778578591
+  },
+  {
+   "arm": "stkL5",
+   "seed": 7,
+   "bag": "a50_stkL5_seed7_20261127_004122",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 0.44285520869372674,
+    "scale": 0.002987455375084699
+   },
+   "dr_median": 0.2477229501427489,
+   "fused_median": 0.2490943704138999,
+   "dr_end": 0.3824368653198587,
+   "fused_end": 4.328750480178846
+  },
+  {
+   "arm": "stkL0",
+   "seed": 7,
+   "bag": "a50_stkL0_seed7_20261127_010854",
+   "grade": "MEMS, bias cal. on deck (dT 10 C)",
+   "gyro": {
+    "bias_dph": 0.44285520869372674,
+    "scale": 0.002987455375084699
+   },
+   "dr_median": 0.2375432295933541,
+   "fused_median": 0.3511327600574837,
+   "dr_end": 0.3516235494936,
+   "fused_end": 3.0445330459037305
+  }
+ ],
+ "tests": {
+  "MEMS, bias cal. in water (dT 1 C)": {
+   "n": 24,
+   "fused_better_median": 9,
+   "fused_better_end": 3,
+   "p_median": 0.7720628380775452,
+   "p_end": 0.9999778866767883,
+   "median_dr": 0.6705848447222684,
+   "median_fused": 0.7051209807800758
+  },
+  "tactical MEMS (ADIS16495-class)": {
+   "n": 24,
+   "fused_better_median": 0,
+   "fused_better_end": 0,
+   "p_median": 1.0,
+   "p_end": 1.0,
+   "median_dr": 0.28516998138603444,
+   "median_fused": 0.3886877633705774
+  },
+  "MEMS, bias cal. on deck (dT 10 C)": {
+   "n": 24,
+   "fused_better_median": 15,
+   "fused_better_end": 12,
+   "p_median": 0.07575047016143799,
+   "p_end": 0.24539929628372192,
+   "median_dr": 8.114734884714593,
+   "median_fused": 7.745031695274663
+  }
+ },
+ "missing": []
+}
