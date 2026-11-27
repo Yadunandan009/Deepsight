@@ -52,9 +52,14 @@ def run(worker, workers):
         if i % workers != worker or os.path.exists(os.path.join(workdir(f, g), "summary.json")):
             continue
         print(f"[{i}] {f['bag']}  {g}", flush=True)
-        subprocess.run([sys.executable, os.path.join(HERE, "replay_nav.py"),
-                        os.path.join(WS, "bags", f["bag"]), "--grade", g, "--seed", str(f["seed"])],
-                       stdout=subprocess.DEVNULL, check=False)
+        p = subprocess.run([sys.executable, os.path.join(HERE, "replay_nav.py"),
+                            os.path.join(WS, "bags", f["bag"]), "--grade", g, "--seed", str(f["seed"])],
+                           capture_output=True, text=True, check=False)
+        os.makedirs(workdir(f, g), exist_ok=True)
+        open(os.path.join(workdir(f, g), "replay.log"), "w").write(p.stdout + p.stderr)
+        if p.returncode:
+            print(f"[{i}] FAILED (exit {p.returncode}): " + (p.stderr.strip().splitlines() or ["?"])[-1],
+                  flush=True)
 
 
 def errors(track, truth, t_lo, t_hi):

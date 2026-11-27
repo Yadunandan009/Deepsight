@@ -178,13 +178,22 @@ def run_filter(inp, out, cfg, node, remap_to):
                     "--disable-keyboard-controls"], env=E, check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(2.0)
-    for p in [rec] + procs:
+    # the recorder first, and given time: killed before it closes, the bag has
+    # no metadata.yaml and cannot be read (what failed the first 6-worker run)
+    os.killpg(rec.pid, signal.SIGINT)
+    try:
+        rec.wait(timeout=60)
+    except subprocess.TimeoutExpired:
+        os.killpg(rec.pid, signal.SIGKILL)
+    for p in procs:
         os.killpg(p.pid, signal.SIGINT)
-    for p in [rec] + procs:
+    for p in procs:
         try:
             p.wait(timeout=15)
         except subprocess.TimeoutExpired:
             os.killpg(p.pid, signal.SIGKILL)
+    if not os.path.exists(os.path.join(out, "metadata.yaml")):
+        raise RuntimeError(f"recorder did not close {out}")
     err = procs[1].stderr.read().decode(errors="replace") if procs[1].stderr else ""
     return [ln for ln in err.splitlines() if "WARN" in ln or "ERROR" in ln][:5]
 
