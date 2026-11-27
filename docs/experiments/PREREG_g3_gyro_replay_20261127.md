@@ -80,3 +80,4 @@ imputed. A replay that fails, for example a filter that does not start, is re-ru
 ## Results log
 
 (append only)
+- 2026-11-27, IMPLEMENTATION, before any corrupted replay finished: playback raised from 4x to 16x (`REPLAY_RATE=16`), 6 parallel workers. Fidelity re-checked at 16x on `a50_stkL0_seed7_20261127_010854` uncorrupted: DR' vs recorded 1.8 mm median / 4.5 mm max, fused' 2.3 cm / 0.32 m, error against truth fused' median 0.435 m vs recorded 0.424 m, identical to 4x; one 0.3 ms overrun of the DR filter's 50 Hz tick, 0.3 % fewer DR outputs. A first 2-worker run at 4x was stopped after its first two replays started and before either finished; nothing from it is used. Each replay's filter warnings are kept in its summary.json and reported.

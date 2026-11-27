@@ -66,7 +66,8 @@ import replay_bridge as rb   # noqa: E402
 CFG = os.path.join(WS, "src", "stonefish_bluerov2")
 OUT_ROOT = os.path.join(rb.BAG_ROOT, "replay_nav")
 DOMAIN = os.environ.get("REPLAY_DOMAIN", "73")   # one per parallel replay
-RATE = 4.0   # fidelity checked at this rate (a50_stkL0_seed7: DR' 1.8 mm, fused' 2.3 cm median)
+# playback rate; fidelity checked at 4x (a50_stkL0_seed7: DR' 1.8 mm, fused' 2.3 cm median)
+RATE = float(os.environ.get("REPLAY_RATE", "4.0"))
 T_IMU, T_DVL, T_DEPTH = "/bluerov2/imu", "/bluerov2/dvl_twist", "/bluerov2/depth_pose"
 T_SLAM, T_MAP = "/bluerov2/robot_pose_slam", "/bluerov2/map_points"
 T_DR, T_FILT, T_BR, T_TRUTH = ("/bluerov2/odometry/dr", "/bluerov2/odometry/filtered",
